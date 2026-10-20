@@ -4,13 +4,29 @@ The repository has been pushed with author authorization. The author configured
 the pending PyPI trusted publisher for release.yml, environment pypi. Hosted CI
 and the existing release approval gates must pass before publication.
 
+## Published release 1.0.0
+
+Published on 20 October 2026 using the configured PyPI trusted publisher:
+
+- Source tag: `v1.0.0` (`29e670df8548ca9b3cfc6751531d5c28b00b6d8b`).
+- [Successful release workflow](https://github.com/filippi/avenc/actions/runs/39484296354).
+- [PyPI](https://pypi.org/project/avenc/1.0.0/): 16 wheels and one source distribution.
+- [GitHub release](https://github.com/filippi/avenc/releases/tag/v1.0.0): the same Python distributions,
+  four native installers and SHA256SUMS.
+- All Linux/macOS source, wheel and standalone installation checks passed.
+- `AVENC_RELEASE_ENABLED` was reset to `false` after successful publication.
+
+The configured GitHub environments restrict deployments to `v*` tags. They have
+no required reviewer; explicit workflow dispatch and the two repository variables
+remain the publication controls. TestPyPI is optional and has not been configured.
+
 ## One-time manual setup
 
 1. Review the complete untracked tree; commit and push to filippi/avenc only when
    the author authorizes that step. Enable Actions and branch protection on main.
 2. Require Source checks and all four Binary wheels jobs. Inspect their repaired
-   wheels, native smoke tests and dependency notices. Hosted workflows have not
-   been executed by local preparation.
+   wheels, native smoke tests and dependency notices. For 1.0.0 all four wheel jobs and both source-check jobs passed; retain
+   fresh evidence for every subsequent release.
 3. Create protected environments `testpypi`, `pypi`, `github-release`, requiring
    author approval and limiting deployment to version tags.
 4. In TestPyPI and PyPI create pending trusted publishers: project `avenc`, owner
@@ -22,7 +38,7 @@ and the existing release approval gates must pass before publication.
    configuration that was excluded. Confirm the minimal closure in hosted CI
    before approving it for release. Only then set repository
    variable `AVENC_LINUX_DEPENDENCIES_APPROVED=true`. It is a separate publication
-   gate and must remain false during this preparation.
+   gate: enable it only after reviewing the actual dependencies for the release.
 6. Keep repository variable `AVENC_RELEASE_ENABLED` absent/false until approved.
    Publication needs BOTH this variable=true and explicit manual publish=true;
    pushing a tag only builds artifacts. OIDC is scoped to the publish job.

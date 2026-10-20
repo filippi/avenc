@@ -8,10 +8,10 @@ Video compression and lazy access for meteorological GRIB grids.
 pip install avenc
 ```
 
-**First release is being prepared; not yet published.** The commands above become
-available after the authorized PyPI release. Use a virtual environment. Supported
-binary-wheel targets: Python 3.11–3.14, Linux x86_64/aarch64 (glibc >=2.28), macOS
-Intel/Apple Silicon (>=15). Install prebuilt FFmpeg separately with
+AVENC 1.0.0 is available on [PyPI](https://pypi.org/project/avenc/) and as
+[standalone native installers](https://github.com/filippi/avenc/releases/tag/v1.0.0).
+Use a virtual environment. Supported binary-wheel targets: Python 3.11–3.14, Linux x86_64/aarch64 (glibc >=2.28), macOS
+Intel/Apple Silicon (>=15). Install prebuilt FFmpeg 5.1+ separately with
 `brew install ffmpeg-full` or `sudo apt install ffmpeg`; no FFmpeg compilation required.
 
 ## Check the installation

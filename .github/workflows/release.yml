@@ -1,4 +1,4 @@
-name: Release (publication disabled until authorized)
+name: Release
 on:
   push:
     tags: ['v*']
