@@ -6,7 +6,7 @@ import subprocess
 import sys
 
 wheel, destination = sys.argv[1:]
-paths = [str(Path(spec.origin).parent / "lib") for name in ("eccodeslib", "eckitlib") if (spec := find_spec(name)) is not None]
+paths = [str(Path(spec.origin).parent / sub) for name in ("eccodeslib", "eckitlib") if (spec := find_spec(name)) is not None for sub in ("lib", "lib64")]
 env = os.environ.copy()
 key = "DYLD_LIBRARY_PATH" if sys.platform == "darwin" else "LD_LIBRARY_PATH"
 env[key] = os.pathsep.join(paths + [env.get(key, "")])

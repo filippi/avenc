@@ -17,7 +17,7 @@ import sys
 root = Path(sys.argv[1])
 bindir = root / "avenc/_native/bin"
 roots = [Path(find_spec(name).origin).parent for name in ("eccodeslib", "eckitlib")]
-search = [str(r / "lib") for r in roots] + [str(r / ".dylibs") for r in roots] + [str(bindir)]
+search = [str(r / sub) for r in roots for sub in ("lib", "lib64", ".dylibs")] + [str(r.parent / (r.name + ".libs")) for r in roots] + [str(bindir)]
 key = "DYLD_LIBRARY_PATH" if sys.platform == "darwin" else "LD_LIBRARY_PATH"
 os.environ[key] = os.pathsep.join(search + [os.environ.get(key, "")])
 if sys.platform == "darwin":
