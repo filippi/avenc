@@ -1,0 +1,37 @@
+# Local builds and native artifacts
+build*/
+/bin/
+/lib/
+dist/
+*.so
+*.dylib
+*.dll
+*.o
+*.a
+*.egg-info/
+# Python environments and caches
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+# Data and generated demonstrations
+*.mp4
+*.grib
+*.grib2
+*.grb
+*.nc
+*.npy
+*.npz
+*.zarr/
+synthetic_tests/
+# Local configuration and OS metadata
+.DS_Store
+.env
+.env.*
+
+# Release staging
+wheelhouse/
+native/
+*.whl

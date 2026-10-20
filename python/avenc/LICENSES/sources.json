@@ -1,0 +1,37 @@
+[
+  {
+    "file": "openjpeg.txt",
+    "url": "https://raw.githubusercontent.com/uclouvain/openjpeg/master/LICENSE",
+    "sha256": "a6af136f3e15038a666b61f376612a07d9a4e48cb7c01adbf3e33b3f14ab49b6"
+  },
+  {
+    "file": "libpng.txt",
+    "url": "https://raw.githubusercontent.com/pnggroup/libpng/libpng16/LICENSE",
+    "sha256": "bdb0a645ea18c60507d0368379b1ac5474b92255fcc2d115e07486a7672ba526"
+  },
+  {
+    "file": "proj.txt",
+    "url": "https://raw.githubusercontent.com/OSGeo/PROJ/master/COPYING",
+    "sha256": "6a8f30793e877d32e3f88b972f0970a051a3b5a26cd057d3993cb51e21c43319"
+  },
+  {
+    "file": "sqlite.txt",
+    "url": "https://raw.githubusercontent.com/sqlite/sqlite/master/LICENSE.md",
+    "sha256": "c9053892d578840a196d588ff68baa9bc0f5240eb215fb9cf91cd6b0b3209305"
+  },
+  {
+    "file": "lz4.txt",
+    "url": "https://raw.githubusercontent.com/lz4/lz4/dev/lib/LICENSE",
+    "sha256": "8b58c446121a109ccf32edc094bba3010a3d85e4ee3702950db55e4d3e87736c"
+  },
+  {
+    "file": "zlib.txt",
+    "url": "https://raw.githubusercontent.com/madler/zlib/master/LICENSE",
+    "sha256": "e32ff4e00d9d94930537635291da39e7e612703334bf6fde8c7f1686fe8a45a2"
+  },
+  {
+    "file": "libaec.txt",
+    "url": "https://raw.githubusercontent.com/MathisRosenhauer/libaec/master/LICENSE.txt",
+    "sha256": "9fdabba96fbc46af0ca018f86329f1e06e873b25801732001128d5afca265e36"
+  }
+]

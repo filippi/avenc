@@ -1,0 +1,11 @@
+cff-version: 1.2.0
+message: "Please cite AVENC and the version used in your work."
+type: software
+title: "AVENC: meteorological grids as video streams"
+authors:
+  - family-names: Filippi
+    given-names: Jean-Baptiste
+    affiliation: "CNRS, Università di Corsica"
+repository-code: "https://github.com/filippi/avenc"
+license: Apache-2.0
+version: "1.0.0"

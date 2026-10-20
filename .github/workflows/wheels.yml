@@ -1,0 +1,54 @@
+name: Binary wheels
+on:
+  pull_request:
+    paths: ['src/**', 'python/**', 'packaging/**', 'CMakeLists.txt', 'VERSION', 'pyproject.toml', '.github/workflows/**']
+  workflow_dispatch:
+  workflow_call:
+permissions:
+  contents: read
+jobs:
+  wheels:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            arch: x86_64
+          - os: ubuntu-24.04-arm
+            arch: aarch64
+          - os: macos-15
+            arch: arm64
+          - os: macos-15-intel
+            arch: x86_64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: '3.12'
+      - if: runner.os == 'macOS'
+        run: brew install ffmpeg
+      - if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - run: python -m pip install cibuildwheel==4.3.1
+      - run: python -m cibuildwheel --output-dir wheelhouse
+        env:
+          CIBW_ARCHS: ${{ matrix.arch }}
+      - name: Standalone archive installation and round trip
+        shell: bash
+        run: |
+          python packaging/make_native.py wheelhouse/*cp311*.whl --output native
+          tar -xzf native/*.tar.gz -C native
+          bash native/avenc-*/install.sh "$RUNNER_TEMP/avenc-prefix"
+          export PATH="$RUNNER_TEMP/avenc-prefix/bin:$PATH"
+          grib2avenc --help
+          avenc2grib --help
+          avenc_test_generator --ni 512 --nj 128 --nt 2 --nlev 1 --out-dir "$RUNNER_TEMP/fixture"
+          grib2avenc "$RUNNER_TEMP/fixture/synthetic_all.grib" "$RUNNER_TEMP/native.mp4"
+          avenc2grib "$RUNNER_TEMP/native.mp4" "$RUNNER_TEMP/native.grib"
+          bash "$RUNNER_TEMP/avenc-prefix/share/avenc/uninstall.sh" "$RUNNER_TEMP/avenc-prefix"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: wheels-${{ matrix.os }}-${{ matrix.arch }}
+          path: wheelhouse/*.whl
+          if-no-files-found: error

@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>About AVENC</title>
+  <style>
+    :root {
+      --bg: #0a111a;
+      --panel: #111b27;
+      --line: #20344a;
+      --txt: #d9e2ef;
+      --muted: #90a3ba;
+      --accent: #2db1ff;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+      color: var(--txt);
+      background: radial-gradient(circle at 10% 5%, #122336 0%, var(--bg) 46%);
+      line-height: 1.5;
+    }
+    .wrap {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 16px;
+      display: grid;
+      gap: 12px;
+    }
+    .panel {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
+      padding: 14px;
+    }
+    h1, h2, h3 {
+      margin: 0 0 8px 0;
+      line-height: 1.2;
+    }
+    h1 { font-size: 26px; }
+    h2 { font-size: 20px; margin-top: 12px; }
+    h3 { font-size: 16px; margin-top: 10px; }
+    p { margin: 0 0 10px 0; color: #d5e3f2; }
+    ul { margin: 0 0 10px 22px; }
+    li { margin-bottom: 4px; }
+    code {
+      background: rgba(10, 18, 28, 0.9);
+      border: 1px solid #2a3d52;
+      border-radius: 4px;
+      padding: 1px 4px;
+      color: #dbefff;
+    }
+    pre {
+      margin: 8px 0 12px 0;
+      background: #09131f;
+      border: 1px solid #2a3d52;
+      border-radius: 8px;
+      padding: 10px;
+      overflow: auto;
+      color: #d6e8fb;
+      font-size: 13px;
+    }
+    .topnav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 6px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+    a:hover {
+      text-decoration: underline;
+    }
+    .muted { color: var(--muted); }
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    @media (max-width: 900px) {
+      .grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="panel">
+      <div class="topnav">
+        <div>AVENc - Jean-Baptiste Filippi - firecaster.org - CNRS - Università di Corsica</div>
+        <a href="./viewer.html">Open Visualizer</a>
+      </div>
+      <h1>About AVENC</h1>
+      <p>
+        AVENC uses modern video compression as a transport and chunked-access layer for meteorological GRIB data.
+        The objective is to move huge datasets fast, keep decode selective (space/time/stream subsets), and reuse
+        robust video tooling from FFmpeg and streaming ecosystems.
+      </p>
+      <p class="muted">
+        Scientific source format remains GRIB. MP4 carries compressed fields and reconstruction metadata. The browser viewer currently downloads the whole MP4; metadata inspection can use HTTP Range.
+      </p>
+    </div>
+
+    <div class="panel">
+      <h2>Core Philosophy</h2>
+      <ul>
+        <li>GRIB stays the reference scientific format.</li>
+        <li>MP4 carries compressed fields plus enough metadata to reconstruct values and keys.</li>
+        <li>Decode can be lazy and subset-based instead of full-field/full-time loading.</li>
+        <li>Existing media infrastructure (encoders, hardware paths, caches, CDNs) becomes usable for geophysical data.</li>
+      </ul>
+    </div>
+
+    <div class="grid">
+      <div class="panel">
+        <h2>Main Binaries</h2>
+        <h3><code>bin/grib2avenc</code></h3>
+        <p>Packs one or multiple GRIB files into MP4 streams.</p>
+        <ul>
+          <li>Default encoder profile: <code>av1_lossless12_auto_400</code></li>
+          <li>Embeds metadata payload in MP4 container comments (<code>AVENCv2|...</code>; legacy v1 remains readable)</li>
+          <li>Stores grouping and per-frame quantization metadata for reconstruction</li>
+        </ul>
+        <h3><code>bin/avenc2grib</code></h3>
+        <p>Inverse tool: reconstruct to GRIB, extract one stream/group, or output Float32 subsets.</p>
+        <ul>
+          <li>Recreates key GRIB metadata and message count for scientific workflows</li>
+          <li>Scientific quantization can introduce error even with lossless video</li>
+          <li>Output message ordering may differ from input ordering</li>
+        </ul>
+      </div>
+
+      <div class="panel">
+        <h2>How These MP4s Are Generated</h2>
+        <p>Typical encoding commands:</p>
+        <pre><code>bin/grib2avenc input.grib output.mp4
+bin/grib2avenc --compact source/*.grib compact.mp4
+bin/grib2avenc --high source/*.grib high.mp4</code></pre>
+        <p>Typical decoding/extraction commands:</p>
+        <pre><code>bin/avenc2grib --list output.mp4
+bin/avenc2grib output.mp4 restored.grib
+bin/avenc2grib --group stream:0 output.mp4 one_stream.grib</code></pre>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Metadata and Reconstruction Model</h2>
+      <p>
+        MP4 payload includes reconstruction metadata: grouping, geometry, coordinate info, stream options, and frame-level
+        quantization min/max values. This makes the MP4 self-contained for decode/reconstruction workflows.
+      </p>
+      <ul>
+        <li>Per-frame bounds can be used to recover approximate physical values.</li>
+        <li>Optional shared bitmap handling is supported for stable missing-value masks.</li>
+        <li>Grouping strategy can follow variable/level/time continuity goals.</li>
+      </ul>
+    </div>
+
+    <div class="grid">
+      <div class="panel">
+        <h2>Why Video Format Choices Matter</h2>
+        <ul>
+          <li><code>4:2:0</code> is typically the fastest and most compatible path in hardware/software encoders.</li>
+          <li>Using chroma channels to carry extra scientific fields is usually harmful in <code>4:2:0</code> due to subsampling.</li>
+          <li>The design favors robust streaming and predictable decode over channel-multiplex complexity.</li>
+        </ul>
+      </div>
+
+      <div class="panel">
+        <h2>Lazy Access and AI Workflows</h2>
+        <ul>
+          <li>Subset extraction avoids loading full domains when only small windows are needed.</li>
+          <li>xarray + dask integration enables distributed chunked processing.</li>
+          <li>This is useful for AI batch builders and large-scale forecast analytics pipelines.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Python / xarray Example</h2>
+      <pre><code>import xarray as xr
+from avenc_xarray import register_avenc_engine
+
+register_avenc_engine()
+ds = xr.open_dataset("benchmark/era_all.mp4", engine="avenc",
+                     decode_times=False, avenc2grib_bin="bin/avenc2grib")
+
+chunk = ds["2d"].isel(time=slice(0, 100), lat=slice(300, 320), lon=slice(1200, 1220)).values
+print(chunk.shape)</code></pre>
+    </div>
+
+    <div class="panel">
+      <h2>More Details</h2>
+      <p>
+        For full technical details, options, benchmarks, design notes, and test commands, see
+        <a href="../README.md"><code>README.md</code></a> at repository root.
+      </p>
+    </div>
+  </div>
+</body>
+</html>
