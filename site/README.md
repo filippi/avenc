@@ -19,7 +19,10 @@ HTTP serving rather than opening index.html as a file.
   Regenerate after editing snippets with `node site/check.mjs --write`.
 - `assets/style.css`: responsive layout, code presentation and abstract workflow animation.
 
-Autoplay advances every 16 seconds, pauses on interaction, stops while the page
+The walkthrough starts with encoding. Shell commands display and copy without
+backslash line continuations; Python and heredocs keep required newlines.
+
+Autoplay advances every 6 seconds, pauses on interaction, stops while the page
 is hidden, and is disabled for reduced-motion users. Tabs support arrow keys,
 Home and End. Copy requires HTTPS or localhost clipboard permission.
 

@@ -6,7 +6,7 @@ let active = 0;
 let playing = !reducedMotion.matches;
 let elapsed = 0;
 let previous = performance.now();
-const duration = 16000;
+const duration = 6000;
 
 // Highlight text without inserting source code as HTML.
 function highlight(code, language) {
