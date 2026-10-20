@@ -2,6 +2,10 @@
 
 Video compression and lazy access for meteorological GRIB grids.
 
+**[Interactive examples & public datasets](https://filippi.github.io/avenc/)** ·
+[GRIBView](https://filippi.github.io/gribview/) ·
+[Zenodo archive](https://doi.org/10.5281/zenodo.23502851)
+
 ## Install with pip
 
 ```sh

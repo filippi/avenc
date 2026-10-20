@@ -1,0 +1,142 @@
+{
+  "doi": "10.5281/zenodo.23502851",
+  "record": "https://zenodo.org/records/23502851",
+  "checked": "2026-10-20",
+  "files": [
+    {
+      "name": "LAMBC.medium.mp4",
+      "bytes": 32433266,
+      "url": "https://zenodo.org/records/23502851/files/LAMBC.medium.mp4"
+    },
+    {
+      "name": "ENSEMBLE.high.mp4",
+      "bytes": 605702412,
+      "url": "https://zenodo.org/records/23502851/files/ENSEMBLE.high.mp4"
+    },
+    {
+      "name": "ENSEMBLE.compact.mp4",
+      "bytes": 46247055,
+      "url": "https://zenodo.org/records/23502851/files/ENSEMBLE.compact.mp4"
+    },
+    {
+      "name": "LAMBC.hevc_hq10.mp4",
+      "bytes": 55302769,
+      "url": "https://zenodo.org/records/23502851/files/LAMBC.hevc_hq10.mp4"
+    },
+    {
+      "name": "LAMBC.avc_vgood10.mp4",
+      "bytes": 89448800,
+      "url": "https://zenodo.org/records/23502851/files/LAMBC.avc_vgood10.mp4"
+    },
+    {
+      "name": "LAMBC.fast.mp4",
+      "bytes": 10686044,
+      "url": "https://zenodo.org/records/23502851/files/LAMBC.fast.mp4"
+    },
+    {
+      "name": "LAMBC.hevc_xcr8.mp4",
+      "bytes": 8311079,
+      "url": "https://zenodo.org/records/23502851/files/LAMBC.hevc_xcr8.mp4"
+    },
+    {
+      "name": "LAMBC.av1_fast.mp4",
+      "bytes": 4960200,
+      "url": "https://zenodo.org/records/23502851/files/LAMBC.av1_fast.mp4"
+    },
+    {
+      "name": "LAMBC.lossless.mp4",
+      "bytes": 444579520,
+      "url": "https://zenodo.org/records/23502851/files/LAMBC.lossless.mp4"
+    },
+    {
+      "name": "LAMBC.compact.mp4",
+      "bytes": 7151590,
+      "url": "https://zenodo.org/records/23502851/files/LAMBC.compact.mp4"
+    },
+    {
+      "name": "LAMBC.avc_good8.mp4",
+      "bytes": 43851671,
+      "url": "https://zenodo.org/records/23502851/files/LAMBC.avc_good8.mp4"
+    },
+    {
+      "name": "ENSEMBLE.lossless.mp4",
+      "bytes": 4262480381,
+      "url": "https://zenodo.org/records/23502851/files/ENSEMBLE.lossless.mp4"
+    },
+    {
+      "name": "LAMBC.high.mp4",
+      "bytes": 68386692,
+      "url": "https://zenodo.org/records/23502851/files/LAMBC.high.mp4"
+    },
+    {
+      "name": "LAMBC.hevc_good10.mp4",
+      "bytes": 25448319,
+      "url": "https://zenodo.org/records/23502851/files/LAMBC.hevc_good10.mp4"
+    },
+    {
+      "name": "LAMBC.av1_good8_auto_420.mp4",
+      "bytes": 7064649,
+      "url": "https://zenodo.org/records/23502851/files/LAMBC.av1_good8_auto_420.mp4"
+    },
+    {
+      "name": "LAMBC.av1_good10.mp4",
+      "bytes": 7151590,
+      "url": "https://zenodo.org/records/23502851/files/LAMBC.av1_good10.mp4"
+    },
+    {
+      "name": "LAMBC.av1_xcr10.mp4",
+      "bytes": 2165865,
+      "url": "https://zenodo.org/records/23502851/files/LAMBC.av1_xcr10.mp4"
+    },
+    {
+      "name": "LAMBC.av1_hq10.mp4",
+      "bytes": 10443805,
+      "url": "https://zenodo.org/records/23502851/files/LAMBC.av1_hq10.mp4"
+    },
+    {
+      "name": "ERALANDWIND.medium.mp4",
+      "bytes": 78785072,
+      "url": "https://zenodo.org/records/23502851/files/ERALANDWIND.medium.mp4"
+    },
+    {
+      "name": "ERALANDWIND.fast.mp4",
+      "bytes": 22303940,
+      "url": "https://zenodo.org/records/23502851/files/ERALANDWIND.fast.mp4"
+    },
+    {
+      "name": "ERA5_Land_10m_v_component_of_wind_2022_02.grib",
+      "bytes": 3518786880,
+      "url": "https://zenodo.org/records/23502851/files/ERA5_Land_10m_v_component_of_wind_2022_02.grib"
+    },
+    {
+      "name": "ERALANDWIND.compact.mp4",
+      "bytes": 10711337,
+      "url": "https://zenodo.org/records/23502851/files/ERALANDWIND.compact.mp4"
+    },
+    {
+      "name": "ERALANDWIND.lossless.mp4",
+      "bytes": 1696196047,
+      "url": "https://zenodo.org/records/23502851/files/ERALANDWIND.lossless.mp4"
+    },
+    {
+      "name": "ERALANDWIND.high.mp4",
+      "bytes": 201999149,
+      "url": "https://zenodo.org/records/23502851/files/ERALANDWIND.high.mp4"
+    },
+    {
+      "name": "cepBC.grib",
+      "bytes": 1139881966,
+      "url": "https://zenodo.org/records/23502851/files/cepBC.grib"
+    },
+    {
+      "name": "ens_20260930_all.grib",
+      "bytes": 13820252040,
+      "url": "https://zenodo.org/records/23502851/files/ens_20260930_all.grib"
+    },
+    {
+      "name": "ERA5_Land_10m_u_component_of_wind_2022_02.grib",
+      "bytes": 3518786880,
+      "url": "https://zenodo.org/records/23502851/files/ERA5_Land_10m_u_component_of_wind_2022_02.grib"
+    }
+  ]
+}
