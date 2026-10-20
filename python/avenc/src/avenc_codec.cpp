@@ -514,7 +514,7 @@ std::vector<float> decode_video_to_float_array(const std::string &input_path,
     ffmpeg_cmd << "ffmpeg -loglevel error"
                << " -i \"" << input_path << "\""
                << " -map 0:v:" << options.stream_index
-               << " -an -sn -vsync 0"
+               << " -an -sn -fps_mode passthrough"
                << " -f rawvideo"
                << " -pix_fmt " << pix_fmt
                << " -";
@@ -670,7 +670,7 @@ std::vector<float> decode_video_subset_to_float_array(const std::string &input_p
     std::ostringstream ffmpeg_cmd;
     ffmpeg_cmd << "ffmpeg -loglevel error"
                << " -i \"" << input_path << "\""
-               << " -map 0:v:" << options.stream_index << " -an -sn -vsync 0"
+               << " -map 0:v:" << options.stream_index << " -an -sn -fps_mode passthrough"
                << " -vf \"" << vf.str() << "\""
                << " -f rawvideo"
                << " -pix_fmt " << pix_fmt

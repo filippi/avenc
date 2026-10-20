@@ -485,7 +485,7 @@ std::string build_subset_ffmpeg_command(const std::string &input_path,
     cmd << "ffmpeg -loglevel error"
         << " -i " << shell_quote(input_path)
         << " -map 0:v:" << stream_id
-        << " -an -sn -vsync 0"
+        << " -an -sn -fps_mode passthrough"
         << " -vf \"" << vf.str() << "\""
         << " -frames:v " << frame_count
         << " -f rawvideo -pix_fmt " << pix_fmt

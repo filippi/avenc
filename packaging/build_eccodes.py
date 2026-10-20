@@ -49,6 +49,11 @@ def build(name, options):
         "-DCMAKE_INSTALL_LIBDIR=lib", "-DBUILD_SHARED_LIBS=ON",
         "-DCMAKE_INSTALL_RPATH=$ORIGIN", "-DBUILD_TESTING=OFF", *options], check=True)
     subprocess.run(["cmake", "--build", str(directory), "--parallel", str(min(os.cpu_count() or 2, 4)), *(["--target", "eccodes"] if name == "eccodes" else [])], check=True)
+    # ecbuild generates installable .pc files in separate ALL targets.
+    # Generate those explicitly when compiling only the eccodes library target.
+    if name == "eccodes":
+        for script in directory.glob("*-pkg-config-build.cmake"):
+            subprocess.run(["cmake", "-P", str(script)], check=True)
     subprocess.run(["cmake", "--install", str(directory)], check=True)
 
 build("libaec", [])

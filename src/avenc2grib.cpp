@@ -1775,7 +1775,7 @@ std::vector<uint16_t> decode_stream_quantized_range(const std::string &video_pat
     std::ostringstream cmd;
     cmd << "ffmpeg -loglevel error -i \"" << video_path << "\""
         << " -map 0:v:" << stream.stream_index
-        << " -an -sn -vsync 0"
+        << " -an -sn -fps_mode passthrough"
         << " -vf \"select='between(n\\," << frame_start << "\\," << frame_end << ")'\""
         << " -frames:v " << frame_count
         << " -f rawvideo -pix_fmt "
