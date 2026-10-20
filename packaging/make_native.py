@@ -12,7 +12,13 @@ parser.add_argument("--output", type=Path, default=Path("dist"))
 args = parser.parse_args()
 repo = Path(__file__).resolve().parents[1]
 version = (repo/"VERSION").read_text().strip()
-platform = args.wheel.stem.split("-")[-1]
+tag = args.wheel.stem.split("-")[-1]
+if "manylinux" in tag:
+    platform = "linux-" + ("aarch64" if "aarch64" in tag else "x86_64")
+elif "macosx" in tag:
+    platform = "macos-" + ("arm64" if "arm64" in tag else "x86_64")
+else:
+    raise SystemExit(f"Unsupported native archive platform: {tag}")
 name = f"avenc-{version}-{platform}"
 with tempfile.TemporaryDirectory() as tmp:
     root = Path(tmp)/name

@@ -8,12 +8,16 @@ closure; FFmpeg stays external and is never copied into release artifacts.
 | Component | Licence / role | Notices / upstream |
 | --- | --- | --- |
 | ecCodes / eccodeslib | Apache-2.0, GRIB reconstruction, embedded definitions | Upstream LICENSE/AUTHORS copied into avenc/_native/licenses; https://github.com/ecmwf/eccodes |
-| eckit / eckitlib | Apache-2.0, ecCodes dependency | Upstream LICENSE/AUTHORS copied; https://github.com/ecmwf/eckit |
+| eckit / eckitlib | Apache-2.0, macOS ecCodes dependency | Upstream LICENSE/AUTHORS copied; https://github.com/ecmwf/eckit |
 | libaec | BSD-2-Clause, GRIB packing | python/avenc/LICENSES/libaec.txt |
 | OpenJPEG | BSD-2-Clause and retained contributors | python/avenc/LICENSES/openjpeg.txt |
 | libpng | libpng licence | python/avenc/LICENSES/libpng.txt |
 | PROJ | MIT and notices retained in COPYING | python/avenc/LICENSES/proj.txt |
 | SQLite | Public-domain dedication | python/avenc/LICENSES/sqlite.txt |
+| JPEG / libjpeg-turbo | IJG, BSD-3-Clause, Zlib; Intel macOS transitive library | python/avenc/LICENSES/libjpeg-turbo.md and ijg.txt |
+| libtiff | libtiff permissive licence; Intel macOS transitive library | python/avenc/LICENSES/libtiff.md |
+| liblzma | Public-domain/0BSD library; Intel macOS transitive library | python/avenc/LICENSES/xz.txt and lzma-0bsd.txt |
+| Zstandard | BSD-3-Clause option; Intel macOS transitive library | python/avenc/LICENSES/zstd.txt |
 | LZ4 | BSD-2-Clause (library) | python/avenc/LICENSES/lz4.txt |
 | zlib | zlib licence, metadata compression | python/avenc/LICENSES/zlib.txt |
 | pybind11 | BSD-3-Clause, compiled binding headers | python/avenc/LICENSES/pybind11.txt |
@@ -42,12 +46,19 @@ Maintainers: do not introduce a bundled FFmpeg build without a new licence and
 source-distribution review. Do not infer redistribution rights from a codec's
 technical availability. This file is an engineering inventory, not a legal opinion.
 
-## Open Linux redistribution issue
+## Verified minimal Linux build
 
-Inspection of the actual Linux eckit wheel found an additional curl/TLS/Kerberos/
-LDAP/SSH/IDN dependency closure. See packaging/audits/linux_ecmwf_dependencies.json.
-The notices above do not yet cover that closure. Some components have LGPL or
-other source/notice obligations, and the older bundled TLS version also needs
-review. Linux publication is blocked by the separate repository approval gate
-until that review or a minimal upstream build removes the issue. This is not a
-claim that the Linux closure is Apache-only or already cleared for redistribution.
+Linux packaging now compiles pinned ecCodes/libaec sources listed in
+packaging/native_sources.json, retaining PNG, OpenJPEG, AEC and embedded
+definitions. The optional eckit-geo backend is disabled, as it is by default
+in upstream ecCodes. Unexpected non-system Linux dependency names fail the
+bundling step. The previously identified eckit binary-wheel closure is excluded
+from this Linux build. Its retained audit file is historical evidence. Hosted CI validated all eight Linux wheels and both Linux native installer
+variants. The existing release-approval gate is retained and must be enabled
+explicitly for the verified bundle before publication. AVENC's source remains Apache-2.0; wheel metadata also records
+the permissive licences of its bundled dependencies.
+
+The bundled JPEG library is based in part on the work of the Independent JPEG
+Group. No endorsement by its authors is implied. Only the permissively licensed
+liblzma library is bundled, not XZ command-line/build tools. Zstandard is used
+under its BSD-3-Clause licensing option.

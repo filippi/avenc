@@ -8,7 +8,7 @@ dynamic = ["version"]
 description = "Video compression and lazy xarray access for meteorological GRIB grids"
 readme = "README.md"
 requires-python = ">=3.11"
-license = "Apache-2.0"
+license = "Apache-2.0 AND BSD-2-Clause AND BSD-3-Clause AND MIT AND Zlib AND libpng-2.0 AND blessing AND IJG AND 0BSD AND libtiff"
 authors = [{name = "Jean-Baptiste Filippi", email = "filippi_j@univ-corse.fr"}]
 dependencies = ["numpy>=1.24", "xarray>=2023.12", "pandas>=2"]
 classifiers = ["Development Status :: 4 - Beta", "Intended Audience :: Science/Research", "Programming Language :: Python :: 3", "Programming Language :: C++", "Operating System :: POSIX :: Linux", "Operating System :: MacOS", "Topic :: Scientific/Engineering :: Atmospheric Science"]
@@ -36,6 +36,7 @@ ComputeError = "avenc.cli:compute_error"
 
 [tool.scikit-build]
 minimum-version = "0.11"
+cmake.version = ">=3.19"
 wheel.packages = ["python/avenc/avenc", "python/avenc/avenc_xarray"]
 wheel.license-files = ["LICENSE", "python/avenc/LICENSES/*", "THIRD_PARTY.md"]
 sdist.include = ["VERSION", "src/**", "python/**", "packaging/**", "tests/**", "CMakeLists.txt", "www/**"]

@@ -1,10 +1,11 @@
 # Installation
 
-## Release status
+## Supported installations
 
-The release system is implemented locally. No GitHub push, tag, PyPI release,
-TestPyPI release or Homebrew tap has been published by this preparation task.
-Commands that download AVENC require the first authorized release.
+Use the PyPI package for Python/xarray and CLI tools, the native GitHub release
+archive for a local Linux installation, or the CMake source build below. The
+source is at https://github.com/filippi/avenc and release artifacts at
+https://github.com/filippi/avenc/releases.
 
 ## Python and command-line tools
 
@@ -20,7 +21,7 @@ avenc2grib --version
 
 Binary wheels target Linux x86_64/aarch64 (glibc >=2.28) and macOS Intel/Apple
 Silicon (macOS >=15). Wheels bundle the native tools and redistributable ecCodes
-dependency closure. FFmpeg and ffprobe remain external executables:
+dependency closure. FFmpeg5.1+ and ffprobe remain external executables:
 
 ```sh
 # macOS
@@ -57,8 +58,10 @@ python -m pip install .
 ```
 
 This PEP 517 build needs a C++17 compiler, CMake, zlib headers, and internet access
-to pinned build dependencies. It obtains ecCodes headers/libraries from the
-upstream binary wheel, bundles their dependency closure and builds all tools.
+to pinned build dependencies. On Linux it builds pinned ecCodes/libaec sources and requires Python development
+headers, libpng and OpenJPEG development packages in addition to zlib. On macOS
+it uses the upstream binary ecCodes/eckit libraries. All required native tools
+and redistributable libraries are included in the wheel.
 Run from the root; the former python/avenc-only distribution is retired.
 
 ## Standalone binaries

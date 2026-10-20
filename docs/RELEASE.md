@@ -1,7 +1,8 @@
 # Release procedure
 
-No publication is authorized yet. Git origin is configured; no commit/push has
-been performed. Do not enable publication gates until the author approves.
+The repository has been pushed with author authorization. The author configured
+the pending PyPI trusted publisher for release.yml, environment pypi. Hosted CI
+and the existing release approval gates must pass before publication.
 
 ## One-time manual setup
 
@@ -15,10 +16,11 @@ been performed. Do not enable publication gates until the author approves.
 4. In TestPyPI and PyPI create pending trusted publishers: project `avenc`, owner
    `filippi`, repository `avenc`, workflow `release.yml`, environment `testpypi`
    or `pypi` respectively. A 404 name lookup is not a name reservation; recheck.
-5. Review packaging/audits/linux_ecmwf_dependencies.json: the pinned Linux eckit
-   build transitively pulls networking/security libraries beyond the current
-   curated notices. Complete their notices/source obligations and security
-   review (or replace with a minimal ecCodes build). Only then set repository
+5. Review the actual generated native dependency inventory and retained notices.
+   Linux now builds pinned standard ecCodes/libaec sources without eckit-geo;
+   packaging/audits/linux_ecmwf_dependencies.json records the larger binary-wheel
+   configuration that was excluded. Confirm the minimal closure in hosted CI
+   before approving it for release. Only then set repository
    variable `AVENC_LINUX_DEPENDENCIES_APPROVED=true`. It is a separate publication
    gate and must remain false during this preparation.
 6. Keep repository variable `AVENC_RELEASE_ENABLED` absent/false until approved.

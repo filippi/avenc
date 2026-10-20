@@ -1,0 +1,992 @@
+{
+  "status": "All candidate source checks, 16 wheel tests and four native installer tests passed; final publication rebuilds from the release tag",
+  "source_run": "https://github.com/filippi/avenc/actions/runs/39472390491",
+  "wheel_run": "https://github.com/filippi/avenc/actions/runs/39472387693",
+  "source_commit": "5cb3185",
+  "wheels": [
+    {
+      "wheel": "avenc-1.0.0-cp311-cp311-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl",
+      "sha256": "39cab7d8ba8baeac70c9effa9fa29bb7e80b6d9fafc874c7e9d81d956b38969d",
+      "native": {
+        "build_inputs": {
+          "eccodes": {
+            "version": "2.50.0",
+            "url": "https://codeload.github.com/ecmwf/eccodes/tar.gz/refs/tags/2.50.0",
+            "sha256": "f78321e45f3bc7d1ba95ba3efaab2e3cc78ca2a97eefdaae5a85026e06c162c9"
+          },
+          "ecbuild": {
+            "version": "3.16.0",
+            "url": "https://codeload.github.com/ecmwf/ecbuild/tar.gz/refs/tags/3.16.0",
+            "sha256": "69442e80ea6b221c56083ad51cc88596524cef9d59df5ff47148517eeeb1d55f"
+          },
+          "libaec": {
+            "version": "1.1.7",
+            "url": "https://codeload.github.com/MathisRosenhauer/libaec/tar.gz/refs/tags/v1.1.7",
+            "sha256": "26661a569a7def45a2e97fbbd09e0dc5bbb2f8ab1b41250c19e795559eec6fb2"
+          }
+        },
+        "libraries": [
+          {
+            "file": "libaec.so.0",
+            "sha256": "0b90cf78ad2f4a4ec9f31f878030d1d75c4d1880e3886350f40488d49ae98968"
+          },
+          {
+            "file": "libavenc_subset_decode.so",
+            "sha256": "9c87f41274be1470b75d6380fe82ad9e49a32a1f554e96fce000c09cfc2406cc"
+          },
+          {
+            "file": "libeccodes.so",
+            "sha256": "8325e5bed331aec619e3458d6d1dfd828093dd1dbceaa32eb404d89e7549d4b8"
+          },
+          {
+            "file": "libeccodes_memfs.so",
+            "sha256": "e45336da0b4f455ea9ed554bd59e93d5ea2d599178c892d3ae4b92e632b5e397"
+          },
+          {
+            "file": "libopenjp2.so.7",
+            "sha256": "9ba8a6f1656b44269465c9ff177639c9e55868c5de3eaf8f866cc9551110a384"
+          },
+          {
+            "file": "libpng16.so.16",
+            "sha256": "7ccf5cc5cc607477a5f30f5d5b6f62f41ecc536f178d46a06d4b799cdab4948d"
+          }
+        ]
+      }
+    },
+    {
+      "wheel": "avenc-1.0.0-cp312-cp312-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl",
+      "sha256": "787f9a52a8aac88f724810a621dba99c0c56c4386aec7aa6c3935640e728d297",
+      "native": {
+        "build_inputs": {
+          "eccodes": {
+            "version": "2.50.0",
+            "url": "https://codeload.github.com/ecmwf/eccodes/tar.gz/refs/tags/2.50.0",
+            "sha256": "f78321e45f3bc7d1ba95ba3efaab2e3cc78ca2a97eefdaae5a85026e06c162c9"
+          },
+          "ecbuild": {
+            "version": "3.16.0",
+            "url": "https://codeload.github.com/ecmwf/ecbuild/tar.gz/refs/tags/3.16.0",
+            "sha256": "69442e80ea6b221c56083ad51cc88596524cef9d59df5ff47148517eeeb1d55f"
+          },
+          "libaec": {
+            "version": "1.1.7",
+            "url": "https://codeload.github.com/MathisRosenhauer/libaec/tar.gz/refs/tags/v1.1.7",
+            "sha256": "26661a569a7def45a2e97fbbd09e0dc5bbb2f8ab1b41250c19e795559eec6fb2"
+          }
+        },
+        "libraries": [
+          {
+            "file": "libaec.so.0",
+            "sha256": "0b90cf78ad2f4a4ec9f31f878030d1d75c4d1880e3886350f40488d49ae98968"
+          },
+          {
+            "file": "libavenc_subset_decode.so",
+            "sha256": "9c87f41274be1470b75d6380fe82ad9e49a32a1f554e96fce000c09cfc2406cc"
+          },
+          {
+            "file": "libeccodes.so",
+            "sha256": "8325e5bed331aec619e3458d6d1dfd828093dd1dbceaa32eb404d89e7549d4b8"
+          },
+          {
+            "file": "libeccodes_memfs.so",
+            "sha256": "e45336da0b4f455ea9ed554bd59e93d5ea2d599178c892d3ae4b92e632b5e397"
+          },
+          {
+            "file": "libopenjp2.so.7",
+            "sha256": "9ba8a6f1656b44269465c9ff177639c9e55868c5de3eaf8f866cc9551110a384"
+          },
+          {
+            "file": "libpng16.so.16",
+            "sha256": "7ccf5cc5cc607477a5f30f5d5b6f62f41ecc536f178d46a06d4b799cdab4948d"
+          }
+        ]
+      }
+    },
+    {
+      "wheel": "avenc-1.0.0-cp313-cp313-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl",
+      "sha256": "f567059855c5af03746147ac7c48db1cf5afa32b90ec0be58bfbf40907124642",
+      "native": {
+        "build_inputs": {
+          "eccodes": {
+            "version": "2.50.0",
+            "url": "https://codeload.github.com/ecmwf/eccodes/tar.gz/refs/tags/2.50.0",
+            "sha256": "f78321e45f3bc7d1ba95ba3efaab2e3cc78ca2a97eefdaae5a85026e06c162c9"
+          },
+          "ecbuild": {
+            "version": "3.16.0",
+            "url": "https://codeload.github.com/ecmwf/ecbuild/tar.gz/refs/tags/3.16.0",
+            "sha256": "69442e80ea6b221c56083ad51cc88596524cef9d59df5ff47148517eeeb1d55f"
+          },
+          "libaec": {
+            "version": "1.1.7",
+            "url": "https://codeload.github.com/MathisRosenhauer/libaec/tar.gz/refs/tags/v1.1.7",
+            "sha256": "26661a569a7def45a2e97fbbd09e0dc5bbb2f8ab1b41250c19e795559eec6fb2"
+          }
+        },
+        "libraries": [
+          {
+            "file": "libaec.so.0",
+            "sha256": "0b90cf78ad2f4a4ec9f31f878030d1d75c4d1880e3886350f40488d49ae98968"
+          },
+          {
+            "file": "libavenc_subset_decode.so",
+            "sha256": "9c87f41274be1470b75d6380fe82ad9e49a32a1f554e96fce000c09cfc2406cc"
+          },
+          {
+            "file": "libeccodes.so",
+            "sha256": "8325e5bed331aec619e3458d6d1dfd828093dd1dbceaa32eb404d89e7549d4b8"
+          },
+          {
+            "file": "libeccodes_memfs.so",
+            "sha256": "e45336da0b4f455ea9ed554bd59e93d5ea2d599178c892d3ae4b92e632b5e397"
+          },
+          {
+            "file": "libopenjp2.so.7",
+            "sha256": "9ba8a6f1656b44269465c9ff177639c9e55868c5de3eaf8f866cc9551110a384"
+          },
+          {
+            "file": "libpng16.so.16",
+            "sha256": "7ccf5cc5cc607477a5f30f5d5b6f62f41ecc536f178d46a06d4b799cdab4948d"
+          }
+        ]
+      }
+    },
+    {
+      "wheel": "avenc-1.0.0-cp314-cp314-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl",
+      "sha256": "62cc72f4045cd3d777f6e45536e3fdddd45b6dd705f6f1e8b82c03a4f49ad10a",
+      "native": {
+        "build_inputs": {
+          "eccodes": {
+            "version": "2.50.0",
+            "url": "https://codeload.github.com/ecmwf/eccodes/tar.gz/refs/tags/2.50.0",
+            "sha256": "f78321e45f3bc7d1ba95ba3efaab2e3cc78ca2a97eefdaae5a85026e06c162c9"
+          },
+          "ecbuild": {
+            "version": "3.16.0",
+            "url": "https://codeload.github.com/ecmwf/ecbuild/tar.gz/refs/tags/3.16.0",
+            "sha256": "69442e80ea6b221c56083ad51cc88596524cef9d59df5ff47148517eeeb1d55f"
+          },
+          "libaec": {
+            "version": "1.1.7",
+            "url": "https://codeload.github.com/MathisRosenhauer/libaec/tar.gz/refs/tags/v1.1.7",
+            "sha256": "26661a569a7def45a2e97fbbd09e0dc5bbb2f8ab1b41250c19e795559eec6fb2"
+          }
+        },
+        "libraries": [
+          {
+            "file": "libaec.so.0",
+            "sha256": "0b90cf78ad2f4a4ec9f31f878030d1d75c4d1880e3886350f40488d49ae98968"
+          },
+          {
+            "file": "libavenc_subset_decode.so",
+            "sha256": "9c87f41274be1470b75d6380fe82ad9e49a32a1f554e96fce000c09cfc2406cc"
+          },
+          {
+            "file": "libeccodes.so",
+            "sha256": "8325e5bed331aec619e3458d6d1dfd828093dd1dbceaa32eb404d89e7549d4b8"
+          },
+          {
+            "file": "libeccodes_memfs.so",
+            "sha256": "e45336da0b4f455ea9ed554bd59e93d5ea2d599178c892d3ae4b92e632b5e397"
+          },
+          {
+            "file": "libopenjp2.so.7",
+            "sha256": "9ba8a6f1656b44269465c9ff177639c9e55868c5de3eaf8f866cc9551110a384"
+          },
+          {
+            "file": "libpng16.so.16",
+            "sha256": "7ccf5cc5cc607477a5f30f5d5b6f62f41ecc536f178d46a06d4b799cdab4948d"
+          }
+        ]
+      }
+    },
+    {
+      "wheel": "avenc-1.0.0-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl",
+      "sha256": "309ed1bcf5f2e66d09f31bc8efda2dd85fe6680960019882a4f18363cc12615d",
+      "native": {
+        "build_inputs": {
+          "eccodes": {
+            "version": "2.50.0",
+            "url": "https://codeload.github.com/ecmwf/eccodes/tar.gz/refs/tags/2.50.0",
+            "sha256": "f78321e45f3bc7d1ba95ba3efaab2e3cc78ca2a97eefdaae5a85026e06c162c9"
+          },
+          "ecbuild": {
+            "version": "3.16.0",
+            "url": "https://codeload.github.com/ecmwf/ecbuild/tar.gz/refs/tags/3.16.0",
+            "sha256": "69442e80ea6b221c56083ad51cc88596524cef9d59df5ff47148517eeeb1d55f"
+          },
+          "libaec": {
+            "version": "1.1.7",
+            "url": "https://codeload.github.com/MathisRosenhauer/libaec/tar.gz/refs/tags/v1.1.7",
+            "sha256": "26661a569a7def45a2e97fbbd09e0dc5bbb2f8ab1b41250c19e795559eec6fb2"
+          }
+        },
+        "libraries": [
+          {
+            "file": "libaec.so.0",
+            "sha256": "daeb1a2fbe9b1bcf4fae701c250d4267259793bd7a8e196da539da5106945528"
+          },
+          {
+            "file": "libavenc_subset_decode.so",
+            "sha256": "53a0f811030d1b2c3e968a15d83eda5dc7c820acc698b02d999c5c2c03babe55"
+          },
+          {
+            "file": "libeccodes.so",
+            "sha256": "a5789b8275204dd1c516c7870ea0d7ce08e620e43d4ed021a5e70e18a34e84d5"
+          },
+          {
+            "file": "libeccodes_memfs.so",
+            "sha256": "747f0278f9df39d7fdcb45aa46986717cae8b95de1a359518c338884df845031"
+          },
+          {
+            "file": "libopenjp2.so.7",
+            "sha256": "0200612b56d2f66ea6f6f7137064ffd74a03f5df3d23a7ccaf2dde89b6f87722"
+          },
+          {
+            "file": "libpng16.so.16",
+            "sha256": "09d88a0fd990ca8550260de7f09379e8cb21850ee7d67683c9a916c5b4cc6e36"
+          }
+        ]
+      }
+    },
+    {
+      "wheel": "avenc-1.0.0-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl",
+      "sha256": "5de520dcbd99f0848d10b79500018804832f5800203e3848e480fa9b285086d0",
+      "native": {
+        "build_inputs": {
+          "eccodes": {
+            "version": "2.50.0",
+            "url": "https://codeload.github.com/ecmwf/eccodes/tar.gz/refs/tags/2.50.0",
+            "sha256": "f78321e45f3bc7d1ba95ba3efaab2e3cc78ca2a97eefdaae5a85026e06c162c9"
+          },
+          "ecbuild": {
+            "version": "3.16.0",
+            "url": "https://codeload.github.com/ecmwf/ecbuild/tar.gz/refs/tags/3.16.0",
+            "sha256": "69442e80ea6b221c56083ad51cc88596524cef9d59df5ff47148517eeeb1d55f"
+          },
+          "libaec": {
+            "version": "1.1.7",
+            "url": "https://codeload.github.com/MathisRosenhauer/libaec/tar.gz/refs/tags/v1.1.7",
+            "sha256": "26661a569a7def45a2e97fbbd09e0dc5bbb2f8ab1b41250c19e795559eec6fb2"
+          }
+        },
+        "libraries": [
+          {
+            "file": "libaec.so.0",
+            "sha256": "daeb1a2fbe9b1bcf4fae701c250d4267259793bd7a8e196da539da5106945528"
+          },
+          {
+            "file": "libavenc_subset_decode.so",
+            "sha256": "53a0f811030d1b2c3e968a15d83eda5dc7c820acc698b02d999c5c2c03babe55"
+          },
+          {
+            "file": "libeccodes.so",
+            "sha256": "a5789b8275204dd1c516c7870ea0d7ce08e620e43d4ed021a5e70e18a34e84d5"
+          },
+          {
+            "file": "libeccodes_memfs.so",
+            "sha256": "747f0278f9df39d7fdcb45aa46986717cae8b95de1a359518c338884df845031"
+          },
+          {
+            "file": "libopenjp2.so.7",
+            "sha256": "0200612b56d2f66ea6f6f7137064ffd74a03f5df3d23a7ccaf2dde89b6f87722"
+          },
+          {
+            "file": "libpng16.so.16",
+            "sha256": "09d88a0fd990ca8550260de7f09379e8cb21850ee7d67683c9a916c5b4cc6e36"
+          }
+        ]
+      }
+    },
+    {
+      "wheel": "avenc-1.0.0-cp313-cp313-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl",
+      "sha256": "9adfb42b0126a3281cbf4b79c49af7d8281d82c4e2bfc9526c69569df3a94b45",
+      "native": {
+        "build_inputs": {
+          "eccodes": {
+            "version": "2.50.0",
+            "url": "https://codeload.github.com/ecmwf/eccodes/tar.gz/refs/tags/2.50.0",
+            "sha256": "f78321e45f3bc7d1ba95ba3efaab2e3cc78ca2a97eefdaae5a85026e06c162c9"
+          },
+          "ecbuild": {
+            "version": "3.16.0",
+            "url": "https://codeload.github.com/ecmwf/ecbuild/tar.gz/refs/tags/3.16.0",
+            "sha256": "69442e80ea6b221c56083ad51cc88596524cef9d59df5ff47148517eeeb1d55f"
+          },
+          "libaec": {
+            "version": "1.1.7",
+            "url": "https://codeload.github.com/MathisRosenhauer/libaec/tar.gz/refs/tags/v1.1.7",
+            "sha256": "26661a569a7def45a2e97fbbd09e0dc5bbb2f8ab1b41250c19e795559eec6fb2"
+          }
+        },
+        "libraries": [
+          {
+            "file": "libaec.so.0",
+            "sha256": "daeb1a2fbe9b1bcf4fae701c250d4267259793bd7a8e196da539da5106945528"
+          },
+          {
+            "file": "libavenc_subset_decode.so",
+            "sha256": "53a0f811030d1b2c3e968a15d83eda5dc7c820acc698b02d999c5c2c03babe55"
+          },
+          {
+            "file": "libeccodes.so",
+            "sha256": "a5789b8275204dd1c516c7870ea0d7ce08e620e43d4ed021a5e70e18a34e84d5"
+          },
+          {
+            "file": "libeccodes_memfs.so",
+            "sha256": "747f0278f9df39d7fdcb45aa46986717cae8b95de1a359518c338884df845031"
+          },
+          {
+            "file": "libopenjp2.so.7",
+            "sha256": "0200612b56d2f66ea6f6f7137064ffd74a03f5df3d23a7ccaf2dde89b6f87722"
+          },
+          {
+            "file": "libpng16.so.16",
+            "sha256": "09d88a0fd990ca8550260de7f09379e8cb21850ee7d67683c9a916c5b4cc6e36"
+          }
+        ]
+      }
+    },
+    {
+      "wheel": "avenc-1.0.0-cp314-cp314-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl",
+      "sha256": "7e3090c25303ab04f0d69b3809118051f3644a4d4efb606da0b045ebb4cbdb42",
+      "native": {
+        "build_inputs": {
+          "eccodes": {
+            "version": "2.50.0",
+            "url": "https://codeload.github.com/ecmwf/eccodes/tar.gz/refs/tags/2.50.0",
+            "sha256": "f78321e45f3bc7d1ba95ba3efaab2e3cc78ca2a97eefdaae5a85026e06c162c9"
+          },
+          "ecbuild": {
+            "version": "3.16.0",
+            "url": "https://codeload.github.com/ecmwf/ecbuild/tar.gz/refs/tags/3.16.0",
+            "sha256": "69442e80ea6b221c56083ad51cc88596524cef9d59df5ff47148517eeeb1d55f"
+          },
+          "libaec": {
+            "version": "1.1.7",
+            "url": "https://codeload.github.com/MathisRosenhauer/libaec/tar.gz/refs/tags/v1.1.7",
+            "sha256": "26661a569a7def45a2e97fbbd09e0dc5bbb2f8ab1b41250c19e795559eec6fb2"
+          }
+        },
+        "libraries": [
+          {
+            "file": "libaec.so.0",
+            "sha256": "daeb1a2fbe9b1bcf4fae701c250d4267259793bd7a8e196da539da5106945528"
+          },
+          {
+            "file": "libavenc_subset_decode.so",
+            "sha256": "53a0f811030d1b2c3e968a15d83eda5dc7c820acc698b02d999c5c2c03babe55"
+          },
+          {
+            "file": "libeccodes.so",
+            "sha256": "a5789b8275204dd1c516c7870ea0d7ce08e620e43d4ed021a5e70e18a34e84d5"
+          },
+          {
+            "file": "libeccodes_memfs.so",
+            "sha256": "747f0278f9df39d7fdcb45aa46986717cae8b95de1a359518c338884df845031"
+          },
+          {
+            "file": "libopenjp2.so.7",
+            "sha256": "0200612b56d2f66ea6f6f7137064ffd74a03f5df3d23a7ccaf2dde89b6f87722"
+          },
+          {
+            "file": "libpng16.so.16",
+            "sha256": "09d88a0fd990ca8550260de7f09379e8cb21850ee7d67683c9a916c5b4cc6e36"
+          }
+        ]
+      }
+    },
+    {
+      "wheel": "avenc-1.0.0-cp311-cp311-macosx_15_0_arm64.whl",
+      "sha256": "cebb511d56ad0916a9516507d3392b40852e63f2b6d55672a9eb1370b70371fc",
+      "native": {
+        "build_inputs": {
+          "eccodeslib": "2.50.0.33",
+          "eckitlib": "2.5.0.33"
+        },
+        "libraries": [
+          {
+            "file": "libaec.0.dylib",
+            "sha256": "ddb7bc2966ff9354a91a821592875c79c53c52f94a510c9a16f5c66f2512c307"
+          },
+          {
+            "file": "libavenc_subset_decode.dylib",
+            "sha256": "62b58729f541dd7d1fc6209db6b7622ee57d4f73ca04ca45db261088753b0dc3"
+          },
+          {
+            "file": "libeccodes.dylib",
+            "sha256": "35d161576e06731ddbba009ddce7c8f9fa8f1fd6f74b106c9ed619323b163ba2"
+          },
+          {
+            "file": "libeccodes_memfs.dylib",
+            "sha256": "1c5af3a18ebfc4e652c3e3834b8a07808d1dcc602d1fee19e94bfa542b29b692"
+          },
+          {
+            "file": "libeckit.dylib",
+            "sha256": "5dcfbb61341e9859c71b438a2c8423b45769df63d5bc34a54c1cb0674fae6b97"
+          },
+          {
+            "file": "libeckit_codec.dylib",
+            "sha256": "49829713e7b0b5dd1e79982c6174d2104acf800a152a3d8aa9ab6537d1404153"
+          },
+          {
+            "file": "libeckit_geo.dylib",
+            "sha256": "8e15addfafdd5ddbe5e7dc3ec159dc6b8c8b0fd1a205799f8c580acd575befee"
+          },
+          {
+            "file": "libeckit_maths.dylib",
+            "sha256": "0fd93e27b6c8aed053e694611e7b976e8c0b9aa51ca734a6cd662b5518e3b453"
+          },
+          {
+            "file": "libeckit_spec.dylib",
+            "sha256": "7125a00958d8ad69f6c051e2a80ec013dffa69cc162b65c09d06be199bb62487"
+          },
+          {
+            "file": "liblz4.1.10.0.dylib",
+            "sha256": "7f57a3bc2e13c7f95439b853dbd90c3422d499433330a7d890788b0d3df2d318"
+          },
+          {
+            "file": "libopenjp2.7.dylib",
+            "sha256": "bfe6cd13911cf5681e415f65cfafa6656078fac811d42fd3de821825de1b8230"
+          },
+          {
+            "file": "libpng16.16.dylib",
+            "sha256": "c396a43cd73207e181b2deaec7efccacf8613fafb1956415ef03d4960dd1047a"
+          },
+          {
+            "file": "libproj.25.9.8.1.dylib",
+            "sha256": "25a5b86e32a961ec0c29e49e87a31911728d5c57b435c1cc0cb4cb8f4a017d95"
+          },
+          {
+            "file": "libsqlite3.3.53.0.dylib",
+            "sha256": "fbdf25c77ab7a41119a5ba8cc8f66edf1638c98e69a7d6f0ebc127475047de65"
+          }
+        ]
+      }
+    },
+    {
+      "wheel": "avenc-1.0.0-cp312-cp312-macosx_15_0_arm64.whl",
+      "sha256": "acb84d5ca80654f5f119d54a7a3273fe9ce2803bc5c8d7bc6e3a18996ce511cb",
+      "native": {
+        "build_inputs": {
+          "eccodeslib": "2.50.0.33",
+          "eckitlib": "2.5.0.33"
+        },
+        "libraries": [
+          {
+            "file": "libaec.0.dylib",
+            "sha256": "1210231bf83c9c9eee008a1b0e0099a6dbcd5bbc2d0ebe178e94f0502dcdb16f"
+          },
+          {
+            "file": "libavenc_subset_decode.dylib",
+            "sha256": "d0c4d79bb260cb44b1dd048cc293c918dcaaefd5b467fe499019a734641b7e63"
+          },
+          {
+            "file": "libeccodes.dylib",
+            "sha256": "35d161576e06731ddbba009ddce7c8f9fa8f1fd6f74b106c9ed619323b163ba2"
+          },
+          {
+            "file": "libeccodes_memfs.dylib",
+            "sha256": "1c5af3a18ebfc4e652c3e3834b8a07808d1dcc602d1fee19e94bfa542b29b692"
+          },
+          {
+            "file": "libeckit.dylib",
+            "sha256": "5dcfbb61341e9859c71b438a2c8423b45769df63d5bc34a54c1cb0674fae6b97"
+          },
+          {
+            "file": "libeckit_codec.dylib",
+            "sha256": "49829713e7b0b5dd1e79982c6174d2104acf800a152a3d8aa9ab6537d1404153"
+          },
+          {
+            "file": "libeckit_geo.dylib",
+            "sha256": "8e15addfafdd5ddbe5e7dc3ec159dc6b8c8b0fd1a205799f8c580acd575befee"
+          },
+          {
+            "file": "libeckit_maths.dylib",
+            "sha256": "0fd93e27b6c8aed053e694611e7b976e8c0b9aa51ca734a6cd662b5518e3b453"
+          },
+          {
+            "file": "libeckit_spec.dylib",
+            "sha256": "7125a00958d8ad69f6c051e2a80ec013dffa69cc162b65c09d06be199bb62487"
+          },
+          {
+            "file": "liblz4.1.10.0.dylib",
+            "sha256": "ae3a7755fa015e91c0aca4dd2d90a60eb8d6b523ddcb3f83f84c0013a636a6b5"
+          },
+          {
+            "file": "libopenjp2.7.dylib",
+            "sha256": "ff802ab2e964ea2e68d6d5440fbe4b291e03efc341831bf7031c73cbbdaad5fe"
+          },
+          {
+            "file": "libpng16.16.dylib",
+            "sha256": "efd78c9e85e43b63f60961d1f8be10ffa878cd77514274f13a6d40d372820a38"
+          },
+          {
+            "file": "libproj.25.9.8.1.dylib",
+            "sha256": "e179022c6850050cd1027bf77c53ea66719e5f19dfc8248190e6b15da918bcce"
+          },
+          {
+            "file": "libsqlite3.3.53.0.dylib",
+            "sha256": "80a5a4a78e04a3c0e013a879a4831a5ee73c60f717b902d29b157ec97c04ad3f"
+          }
+        ]
+      }
+    },
+    {
+      "wheel": "avenc-1.0.0-cp313-cp313-macosx_15_0_arm64.whl",
+      "sha256": "704e2ce54aa7eb9ecc5d941ca824f13c12cbf435faeffe01a9b7311189495f36",
+      "native": {
+        "build_inputs": {
+          "eccodeslib": "2.50.0.33",
+          "eckitlib": "2.5.0.33"
+        },
+        "libraries": [
+          {
+            "file": "libaec.0.dylib",
+            "sha256": "1210231bf83c9c9eee008a1b0e0099a6dbcd5bbc2d0ebe178e94f0502dcdb16f"
+          },
+          {
+            "file": "libavenc_subset_decode.dylib",
+            "sha256": "1156c8c25aa158122e51761982d0eb2c9837fc6f1fc88b20e15fec86a52deacb"
+          },
+          {
+            "file": "libeccodes.dylib",
+            "sha256": "35d161576e06731ddbba009ddce7c8f9fa8f1fd6f74b106c9ed619323b163ba2"
+          },
+          {
+            "file": "libeccodes_memfs.dylib",
+            "sha256": "1c5af3a18ebfc4e652c3e3834b8a07808d1dcc602d1fee19e94bfa542b29b692"
+          },
+          {
+            "file": "libeckit.dylib",
+            "sha256": "5dcfbb61341e9859c71b438a2c8423b45769df63d5bc34a54c1cb0674fae6b97"
+          },
+          {
+            "file": "libeckit_codec.dylib",
+            "sha256": "49829713e7b0b5dd1e79982c6174d2104acf800a152a3d8aa9ab6537d1404153"
+          },
+          {
+            "file": "libeckit_geo.dylib",
+            "sha256": "8e15addfafdd5ddbe5e7dc3ec159dc6b8c8b0fd1a205799f8c580acd575befee"
+          },
+          {
+            "file": "libeckit_maths.dylib",
+            "sha256": "0fd93e27b6c8aed053e694611e7b976e8c0b9aa51ca734a6cd662b5518e3b453"
+          },
+          {
+            "file": "libeckit_spec.dylib",
+            "sha256": "7125a00958d8ad69f6c051e2a80ec013dffa69cc162b65c09d06be199bb62487"
+          },
+          {
+            "file": "liblz4.1.10.0.dylib",
+            "sha256": "ae3a7755fa015e91c0aca4dd2d90a60eb8d6b523ddcb3f83f84c0013a636a6b5"
+          },
+          {
+            "file": "libopenjp2.7.dylib",
+            "sha256": "6ea98fc5ee32802341119808769173de36b82282af4e8ade109c22ec346f4262"
+          },
+          {
+            "file": "libpng16.16.dylib",
+            "sha256": "0c15dee228df3489c5164466cb5a12c58e3475ea030a1654429459b46a8b8c46"
+          },
+          {
+            "file": "libproj.25.9.8.1.dylib",
+            "sha256": "e179022c6850050cd1027bf77c53ea66719e5f19dfc8248190e6b15da918bcce"
+          },
+          {
+            "file": "libsqlite3.3.53.0.dylib",
+            "sha256": "80a5a4a78e04a3c0e013a879a4831a5ee73c60f717b902d29b157ec97c04ad3f"
+          }
+        ]
+      }
+    },
+    {
+      "wheel": "avenc-1.0.0-cp314-cp314-macosx_15_0_arm64.whl",
+      "sha256": "1474ac26da4cf9fa86f1d0dd75c75e9bffcba51413ceb97af4acc52de834342a",
+      "native": {
+        "build_inputs": {
+          "eccodeslib": "2.50.0.33",
+          "eckitlib": "2.5.0.33"
+        },
+        "libraries": [
+          {
+            "file": "libaec.0.dylib",
+            "sha256": "ddb7bc2966ff9354a91a821592875c79c53c52f94a510c9a16f5c66f2512c307"
+          },
+          {
+            "file": "libavenc_subset_decode.dylib",
+            "sha256": "1aa93cfc4834abd3714e144ee24cb0bb7328808cec408f5a99becbac58a3180d"
+          },
+          {
+            "file": "libeccodes.dylib",
+            "sha256": "35d161576e06731ddbba009ddce7c8f9fa8f1fd6f74b106c9ed619323b163ba2"
+          },
+          {
+            "file": "libeccodes_memfs.dylib",
+            "sha256": "1c5af3a18ebfc4e652c3e3834b8a07808d1dcc602d1fee19e94bfa542b29b692"
+          },
+          {
+            "file": "libeckit.dylib",
+            "sha256": "5dcfbb61341e9859c71b438a2c8423b45769df63d5bc34a54c1cb0674fae6b97"
+          },
+          {
+            "file": "libeckit_codec.dylib",
+            "sha256": "49829713e7b0b5dd1e79982c6174d2104acf800a152a3d8aa9ab6537d1404153"
+          },
+          {
+            "file": "libeckit_geo.dylib",
+            "sha256": "8e15addfafdd5ddbe5e7dc3ec159dc6b8c8b0fd1a205799f8c580acd575befee"
+          },
+          {
+            "file": "libeckit_maths.dylib",
+            "sha256": "0fd93e27b6c8aed053e694611e7b976e8c0b9aa51ca734a6cd662b5518e3b453"
+          },
+          {
+            "file": "libeckit_spec.dylib",
+            "sha256": "7125a00958d8ad69f6c051e2a80ec013dffa69cc162b65c09d06be199bb62487"
+          },
+          {
+            "file": "liblz4.1.10.0.dylib",
+            "sha256": "7f57a3bc2e13c7f95439b853dbd90c3422d499433330a7d890788b0d3df2d318"
+          },
+          {
+            "file": "libopenjp2.7.dylib",
+            "sha256": "f25c4ea22d82681eda9d518af5c5c8f1ce07c56de03a857ade20915d6c59ee31"
+          },
+          {
+            "file": "libpng16.16.dylib",
+            "sha256": "ece35ba5a30d9fd6ad35bc39020b226413d4f957b576a2f90d587c3ce76162e0"
+          },
+          {
+            "file": "libproj.25.9.8.1.dylib",
+            "sha256": "25a5b86e32a961ec0c29e49e87a31911728d5c57b435c1cc0cb4cb8f4a017d95"
+          },
+          {
+            "file": "libsqlite3.3.53.0.dylib",
+            "sha256": "fbdf25c77ab7a41119a5ba8cc8f66edf1638c98e69a7d6f0ebc127475047de65"
+          }
+        ]
+      }
+    },
+    {
+      "wheel": "avenc-1.0.0-cp311-cp311-macosx_15_0_x86_64.whl",
+      "sha256": "4b66ef7257319cae85e1fb810657a35a642974744037ec19a45d1fca8517197e",
+      "native": {
+        "build_inputs": {
+          "eccodeslib": "2.50.0.33",
+          "eckitlib": "2.5.0.33"
+        },
+        "libraries": [
+          {
+            "file": "libaec.0.dylib",
+            "sha256": "15fd0d209377d0693164052cc653b50f70078c61eabe027da618074b371cea1e"
+          },
+          {
+            "file": "libavenc_subset_decode.dylib",
+            "sha256": "d2651fff7205984be14bbf0a04018b47802cc55f9dbc4aaa14f716757c691eb7"
+          },
+          {
+            "file": "libeccodes.dylib",
+            "sha256": "d84ede6f77dcf2e99912ad6bccd319c4538c87c3c7d8326d54d4279b7ee9ce80"
+          },
+          {
+            "file": "libeccodes_memfs.dylib",
+            "sha256": "7879d3f239790478382dbe4f767da91782284ea8b6e228e05d4173767227249a"
+          },
+          {
+            "file": "libeckit.dylib",
+            "sha256": "f7baf59cd0630069073e07eecaa37998d890576cdc957279b0f5d31f3c5a3c5c"
+          },
+          {
+            "file": "libeckit_codec.dylib",
+            "sha256": "7aca2400689565b09e38e88eb75a4083eca217e0a8f71bb7c5d4c5970a6ddf02"
+          },
+          {
+            "file": "libeckit_geo.dylib",
+            "sha256": "01352acd2b259bf35a8b9f019c22784a70b90209d1d9767ace2169ef1b855c7f"
+          },
+          {
+            "file": "libeckit_maths.dylib",
+            "sha256": "988c2d42eefd169a77cfa029554c7791d2fcc478339aa42d7d3bf0cae9eab459"
+          },
+          {
+            "file": "libeckit_spec.dylib",
+            "sha256": "95ab4e8755b554b1a952be0c91a4e072b80ac7dadfc2a237ef5ccb56c3ec33f6"
+          },
+          {
+            "file": "libjpeg.8.3.2.dylib",
+            "sha256": "58ff4c3bae145aed1ef8b5a4ac939dcdf34ff268459828dad42e35de2955e5b8"
+          },
+          {
+            "file": "liblz4.1.10.0.dylib",
+            "sha256": "26d37fed3064509422fdf93dd8c5d074d6612bcb5b95731bfba227bca3913bbb"
+          },
+          {
+            "file": "liblzma.5.dylib",
+            "sha256": "1db6a34352b1c54259fcf3a8ee82c59e3fecb61942c63da5160af25a22ebb5e5"
+          },
+          {
+            "file": "libopenjp2.7.dylib",
+            "sha256": "9b0d1840824ab827fe4e68bd503ee315b418b841e0d966896fc89762809a8e31"
+          },
+          {
+            "file": "libpng16.16.dylib",
+            "sha256": "42619ba6dd29740d85dfb97de2c43ac3af0738bb17cef5b3dcaa978dc2596e9d"
+          },
+          {
+            "file": "libproj.25.9.8.1.dylib",
+            "sha256": "1a572348bad9ec0400b851b5fac3ba823a7dac5c66c9bcadb515df6e06ddeab8"
+          },
+          {
+            "file": "libtiff.6.dylib",
+            "sha256": "3a68d4e82f658cd12db498584629fbf5a5ff725cac22a68bd56eb670a9c731b6"
+          },
+          {
+            "file": "libzstd.1.5.7.dylib",
+            "sha256": "4c1517cf14a73fa891675443b3dd2dffd8dfab265348352b59be3b60c7360d7c"
+          }
+        ]
+      }
+    },
+    {
+      "wheel": "avenc-1.0.0-cp312-cp312-macosx_15_0_x86_64.whl",
+      "sha256": "324019a53d53bcdf81c1f530da9e673b5ba377c893ed484103cd2d0c2996ef4f",
+      "native": {
+        "build_inputs": {
+          "eccodeslib": "2.50.0.33",
+          "eckitlib": "2.5.0.33"
+        },
+        "libraries": [
+          {
+            "file": "libaec.0.dylib",
+            "sha256": "41917f0862e2a39c3e8659bfa5afad94dd72ff32350e6e97718798397f7c0315"
+          },
+          {
+            "file": "libavenc_subset_decode.dylib",
+            "sha256": "ed04350996cd90556fc72933b8fe2f9f7d4927f772ce7d5dce04fb2b9c9ebbac"
+          },
+          {
+            "file": "libeccodes.dylib",
+            "sha256": "d84ede6f77dcf2e99912ad6bccd319c4538c87c3c7d8326d54d4279b7ee9ce80"
+          },
+          {
+            "file": "libeccodes_memfs.dylib",
+            "sha256": "7879d3f239790478382dbe4f767da91782284ea8b6e228e05d4173767227249a"
+          },
+          {
+            "file": "libeckit.dylib",
+            "sha256": "f7baf59cd0630069073e07eecaa37998d890576cdc957279b0f5d31f3c5a3c5c"
+          },
+          {
+            "file": "libeckit_codec.dylib",
+            "sha256": "7aca2400689565b09e38e88eb75a4083eca217e0a8f71bb7c5d4c5970a6ddf02"
+          },
+          {
+            "file": "libeckit_geo.dylib",
+            "sha256": "2d3a1b7387a3064e27031df8fa630c521f88ab13c234c86210045094a76114c4"
+          },
+          {
+            "file": "libeckit_maths.dylib",
+            "sha256": "988c2d42eefd169a77cfa029554c7791d2fcc478339aa42d7d3bf0cae9eab459"
+          },
+          {
+            "file": "libeckit_spec.dylib",
+            "sha256": "95ab4e8755b554b1a952be0c91a4e072b80ac7dadfc2a237ef5ccb56c3ec33f6"
+          },
+          {
+            "file": "libjpeg.8.3.2.dylib",
+            "sha256": "58ff4c3bae145aed1ef8b5a4ac939dcdf34ff268459828dad42e35de2955e5b8"
+          },
+          {
+            "file": "liblz4.1.10.0.dylib",
+            "sha256": "26d37fed3064509422fdf93dd8c5d074d6612bcb5b95731bfba227bca3913bbb"
+          },
+          {
+            "file": "liblzma.5.dylib",
+            "sha256": "1db6a34352b1c54259fcf3a8ee82c59e3fecb61942c63da5160af25a22ebb5e5"
+          },
+          {
+            "file": "libopenjp2.7.dylib",
+            "sha256": "218adc39050e8879d62e0a7530c18db2729038ed08cb2027714e768637be0403"
+          },
+          {
+            "file": "libpng16.16.dylib",
+            "sha256": "4ff81e9e93f7f09bbafd8ffa9ed16bc76df8967bc50f82da5bf570e32775e1b5"
+          },
+          {
+            "file": "libproj.25.9.5.1.dylib",
+            "sha256": "caa26a5b4407ec586904491cfad6a74b9c43a057ed8f2031beae1d464afff929"
+          },
+          {
+            "file": "libtiff.6.dylib",
+            "sha256": "3a68d4e82f658cd12db498584629fbf5a5ff725cac22a68bd56eb670a9c731b6"
+          },
+          {
+            "file": "libzstd.1.5.7.dylib",
+            "sha256": "4c1517cf14a73fa891675443b3dd2dffd8dfab265348352b59be3b60c7360d7c"
+          }
+        ]
+      }
+    },
+    {
+      "wheel": "avenc-1.0.0-cp313-cp313-macosx_15_0_x86_64.whl",
+      "sha256": "84609c57280fbba3ecde8c7594f53a01864ff5c8cdd64314b956af1336267f32",
+      "native": {
+        "build_inputs": {
+          "eccodeslib": "2.50.0.33",
+          "eckitlib": "2.5.0.33"
+        },
+        "libraries": [
+          {
+            "file": "libaec.0.dylib",
+            "sha256": "41917f0862e2a39c3e8659bfa5afad94dd72ff32350e6e97718798397f7c0315"
+          },
+          {
+            "file": "libavenc_subset_decode.dylib",
+            "sha256": "1139b3279925a6be344ae5f815139c78642defc3f94727e116136cb33990e721"
+          },
+          {
+            "file": "libeccodes.dylib",
+            "sha256": "d84ede6f77dcf2e99912ad6bccd319c4538c87c3c7d8326d54d4279b7ee9ce80"
+          },
+          {
+            "file": "libeccodes_memfs.dylib",
+            "sha256": "7879d3f239790478382dbe4f767da91782284ea8b6e228e05d4173767227249a"
+          },
+          {
+            "file": "libeckit.dylib",
+            "sha256": "f7baf59cd0630069073e07eecaa37998d890576cdc957279b0f5d31f3c5a3c5c"
+          },
+          {
+            "file": "libeckit_codec.dylib",
+            "sha256": "7aca2400689565b09e38e88eb75a4083eca217e0a8f71bb7c5d4c5970a6ddf02"
+          },
+          {
+            "file": "libeckit_geo.dylib",
+            "sha256": "2d3a1b7387a3064e27031df8fa630c521f88ab13c234c86210045094a76114c4"
+          },
+          {
+            "file": "libeckit_maths.dylib",
+            "sha256": "988c2d42eefd169a77cfa029554c7791d2fcc478339aa42d7d3bf0cae9eab459"
+          },
+          {
+            "file": "libeckit_spec.dylib",
+            "sha256": "95ab4e8755b554b1a952be0c91a4e072b80ac7dadfc2a237ef5ccb56c3ec33f6"
+          },
+          {
+            "file": "libjpeg.8.3.2.dylib",
+            "sha256": "58ff4c3bae145aed1ef8b5a4ac939dcdf34ff268459828dad42e35de2955e5b8"
+          },
+          {
+            "file": "liblz4.1.10.0.dylib",
+            "sha256": "26d37fed3064509422fdf93dd8c5d074d6612bcb5b95731bfba227bca3913bbb"
+          },
+          {
+            "file": "liblzma.5.dylib",
+            "sha256": "1db6a34352b1c54259fcf3a8ee82c59e3fecb61942c63da5160af25a22ebb5e5"
+          },
+          {
+            "file": "libopenjp2.7.dylib",
+            "sha256": "12b0bab2b45769cb8954fa7ea828d28ae3670debb8bf51f8417e7953fe9f79fc"
+          },
+          {
+            "file": "libpng16.16.dylib",
+            "sha256": "e5dfce1a43fdee61812ec385625f8b5375259aa38c6421200a575d6e15307845"
+          },
+          {
+            "file": "libproj.25.9.5.1.dylib",
+            "sha256": "caa26a5b4407ec586904491cfad6a74b9c43a057ed8f2031beae1d464afff929"
+          },
+          {
+            "file": "libtiff.6.dylib",
+            "sha256": "3a68d4e82f658cd12db498584629fbf5a5ff725cac22a68bd56eb670a9c731b6"
+          },
+          {
+            "file": "libzstd.1.5.7.dylib",
+            "sha256": "4c1517cf14a73fa891675443b3dd2dffd8dfab265348352b59be3b60c7360d7c"
+          }
+        ]
+      }
+    },
+    {
+      "wheel": "avenc-1.0.0-cp314-cp314-macosx_15_0_x86_64.whl",
+      "sha256": "0d3e1b1a7e8c562333f00983eea255e6cc6b1d70230f0a02175c9b24d4f6e07f",
+      "native": {
+        "build_inputs": {
+          "eccodeslib": "2.50.0.33",
+          "eckitlib": "2.5.0.33"
+        },
+        "libraries": [
+          {
+            "file": "libaec.0.dylib",
+            "sha256": "15fd0d209377d0693164052cc653b50f70078c61eabe027da618074b371cea1e"
+          },
+          {
+            "file": "libavenc_subset_decode.dylib",
+            "sha256": "ad27c11e5a04b01a85c3e64391a7d9e142e7ab1b79d5be6492b4ba02dbedb64f"
+          },
+          {
+            "file": "libeccodes.dylib",
+            "sha256": "d84ede6f77dcf2e99912ad6bccd319c4538c87c3c7d8326d54d4279b7ee9ce80"
+          },
+          {
+            "file": "libeccodes_memfs.dylib",
+            "sha256": "7879d3f239790478382dbe4f767da91782284ea8b6e228e05d4173767227249a"
+          },
+          {
+            "file": "libeckit.dylib",
+            "sha256": "f7baf59cd0630069073e07eecaa37998d890576cdc957279b0f5d31f3c5a3c5c"
+          },
+          {
+            "file": "libeckit_codec.dylib",
+            "sha256": "7aca2400689565b09e38e88eb75a4083eca217e0a8f71bb7c5d4c5970a6ddf02"
+          },
+          {
+            "file": "libeckit_geo.dylib",
+            "sha256": "01352acd2b259bf35a8b9f019c22784a70b90209d1d9767ace2169ef1b855c7f"
+          },
+          {
+            "file": "libeckit_maths.dylib",
+            "sha256": "988c2d42eefd169a77cfa029554c7791d2fcc478339aa42d7d3bf0cae9eab459"
+          },
+          {
+            "file": "libeckit_spec.dylib",
+            "sha256": "95ab4e8755b554b1a952be0c91a4e072b80ac7dadfc2a237ef5ccb56c3ec33f6"
+          },
+          {
+            "file": "libjpeg.8.3.2.dylib",
+            "sha256": "58ff4c3bae145aed1ef8b5a4ac939dcdf34ff268459828dad42e35de2955e5b8"
+          },
+          {
+            "file": "liblz4.1.10.0.dylib",
+            "sha256": "26d37fed3064509422fdf93dd8c5d074d6612bcb5b95731bfba227bca3913bbb"
+          },
+          {
+            "file": "liblzma.5.dylib",
+            "sha256": "1db6a34352b1c54259fcf3a8ee82c59e3fecb61942c63da5160af25a22ebb5e5"
+          },
+          {
+            "file": "libopenjp2.7.dylib",
+            "sha256": "ac2048273946b45af5cd9e59a5947aae9780196d3e7a89b88986294e020fec0e"
+          },
+          {
+            "file": "libpng16.16.dylib",
+            "sha256": "93ca1cf11e1944cbe18ff4911893478a7aa8509df7475e50d858e715724634ca"
+          },
+          {
+            "file": "libproj.25.9.8.1.dylib",
+            "sha256": "1a572348bad9ec0400b851b5fac3ba823a7dac5c66c9bcadb515df6e06ddeab8"
+          },
+          {
+            "file": "libtiff.6.dylib",
+            "sha256": "3a68d4e82f658cd12db498584629fbf5a5ff725cac22a68bd56eb670a9c731b6"
+          },
+          {
+            "file": "libzstd.1.5.7.dylib",
+            "sha256": "4c1517cf14a73fa891675443b3dd2dffd8dfab265348352b59be3b60c7360d7c"
+          }
+        ]
+      }
+    }
+  ]
+}

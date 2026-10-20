@@ -1,18 +1,28 @@
 # AVENC release readiness — 20 October 2026
 
-## Status
+## Candidate verification
 
-The unified installer and release automation are implemented. The new repository
-is initialized on main with origin=https://github.com/filippi/avenc.git. Nothing
-has been committed, pushed, tagged or published. PyPI/TestPyPI `avenc` returned
-404 when checked; the GitHub repository exists and is empty. These checks do not
-reserve a package name. Homebrew has no current core formula for AVENC; a
-separate tap must still be created. Recheck names before publication.
+The repository is public on main at https://github.com/filippi/avenc. The author
+configured the pending PyPI publisher and authorized the first release.
 
-**Not yet production-release cleared:** hosted CI must run on every target, and
-the Linux dependency redistribution/security issue below must be resolved.
-Publication is disabled by default and additionally protected by explicit
-repository variables and GitHub environments.
+Both source jobs passed: https://github.com/filippi/avenc/actions/runs/39472390491
+All 16 wheels and four standalone installers passed:
+https://github.com/filippi/avenc/actions/runs/39472387693
+
+The wheel matrix covers CPython3.11–3.14 on Linux x86_64/aarch64 and macOS
+Intel/Apple Silicon. The final release workflow rebuilds and retests the exact
+release tag before publishing. The candidate checksums/native inventories are
+retained in packaging/audits/verified_1.0.0_candidates.json.
+
+Linux now uses pinned standard ecCodes/libaec sources, with PNG, OpenJPEG, AEC
+and embedded definitions. It excludes the optional eckit-geo networking backend.
+Actual candidate wheels on both Linux architectures contain only ecCodes,
+libaec, PNG/OpenJPEG and AVENC's subset library; their upstream notices are
+included. Unexpected non-system Linux dependencies fail the build. The existing
+Linux dependency-approval and release-enable gates remain in place.
+
+The local checks below describe initial preparation; earlier missing-service
+or unexecuted-platform notes are historical and superseded by the hosted runs.
 
 ## Implemented files
 

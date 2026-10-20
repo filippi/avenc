@@ -1,5 +1,5 @@
 {
-  "status": "publication blocked pending transitive redistribution/source-obligation review",
+  "status": "Historical upstream binary-wheel closure; excluded from verified Linux releases by the standard ecCodes source build",
   "method": "ELF DT_NEEDED closure from official Linux x86_64 dependency wheels, not an executed Linux test",
   "eccodeslib": "2.50.0.33",
   "eckitlib": "2.5.0.33",
