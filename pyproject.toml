@@ -1,5 +1,5 @@
 [build-system]
-requires = ["scikit-build-core>=0.11,<2", "pybind11>=3.0,<4", "eccodeslib==2.50.0.33", "eckitlib==2.5.0.33", "delocate==0.13.0; sys_platform == 'darwin'", "patchelf>=0.17; sys_platform == 'linux'"]
+requires = ["scikit-build-core>=0.11,<2", "pybind11>=3.0,<4", "eccodeslib==2.50.0.33; sys_platform == 'darwin'", "eckitlib==2.5.0.33; sys_platform == 'darwin'", "delocate==0.13.0; sys_platform == 'darwin'", "patchelf>=0.17; sys_platform == 'linux'"]
 build-backend = "scikit_build_core.build"
 
 [project]
@@ -58,12 +58,12 @@ build = "cp311-* cp312-* cp313-* cp314-*"
 skip = "*-musllinux* *-win* *-manylinux_i686 *-macosx_universal2"
 test-requires = ["eccodes>=2.40", "pytest", "dask[array]"]
 test-command = "python {project}/packaging/smoke_test.py"
-before-build = "pip install eccodeslib==2.50.0.33 eckitlib==2.5.0.33 auditwheel delocate==0.13.0"
+before-build = "pip install auditwheel delocate==0.13.0"
 before-test = "python {project}/packaging/test_media.py"
 
 [tool.cibuildwheel.linux]
-before-all = "/opt/python/cp312-cp312/bin/python {project}/packaging/bootstrap_media.py"
-environment = { PATH = "/opt/avenc-ci-media/bin:$PATH" }
+before-all = "dnf install -y libpng-devel openjpeg2-devel && /opt/python/cp312-cp312/bin/python {project}/packaging/build_eccodes.py --prefix /opt/avenc-eccodes && /opt/python/cp312-cp312/bin/python {project}/packaging/bootstrap_media.py"
+environment = { PATH = "/opt/avenc-ci-media/bin:$PATH", AVENC_ECCODES_PREFIX = "/opt/avenc-eccodes" }
 manylinux-x86_64-image = "manylinux_2_28"
 manylinux-aarch64-image = "manylinux_2_28"
 repair-wheel-command = "python {project}/packaging/repair_wheel.py {wheel} {dest_dir}"

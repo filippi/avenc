@@ -7,14 +7,18 @@ class Avenc < Formula
 
   depends_on "cmake" => :build
   depends_on "eccodes"
-  depends_on "ffmpeg"
+  depends_on "ffmpeg-full"
 
   def install
     system "cmake", "-S", ".", "-B", "build", *std_cmake_args,
            "-DENABLE_FAST_MATH=OFF", "-DENABLE_NATIVE_ARCH=OFF", "-DBUILD_TESTING=ON"
     system "cmake", "--build", "build"
     system "ctest", "--test-dir", "build", "--output-on-failure"
-    system "cmake", "--install", "build"
+    system "cmake", "--install", "build", "--prefix", libexec
+    %w[grib2avenc avenc2grib avpack avenc-compare ComputeError grib_pair_extract avenc_test_generator].each do |tool|
+      (bin/tool).write_env_script libexec/"bin"/tool,
+        PATH: "#{Formula["ffmpeg-full"].opt_bin}:$PATH"
+    end
   end
 
   test do

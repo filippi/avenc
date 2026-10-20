@@ -12,7 +12,7 @@ pip install avenc
 available after the authorized PyPI release. Use a virtual environment. Supported
 binary-wheel targets: Python 3.11–3.14, Linux x86_64/aarch64 (glibc >=2.28), macOS
 Intel/Apple Silicon (>=15). Install prebuilt FFmpeg separately with
-`brew install ffmpeg` or `sudo apt install ffmpeg`; no FFmpeg compilation required.
+`brew install ffmpeg-full` or `sudo apt install ffmpeg`; no FFmpeg compilation required.
 
 ## Check the installation
 

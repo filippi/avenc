@@ -16,7 +16,9 @@ import sys
 
 root = Path(sys.argv[1])
 bindir = root / "avenc/_native/bin"
-roots = [Path(find_spec(name).origin).parent for name in ("eccodeslib", "eckitlib")]
+minimal = Path(sys.argv[2]) if len(sys.argv)>2 else None
+minimal = minimal if minimal and (minimal/"avenc-native-build.json").exists() else None
+roots = [minimal] if minimal else [Path(find_spec(name).origin).parent for name in ("eccodeslib", "eckitlib")]
 search = [str(r / sub) for r in roots for sub in ("lib", "lib64", ".dylibs")] + [str(r.parent / (r.name + ".libs")) for r in roots] + [str(bindir)]
 key = "DYLD_LIBRARY_PATH" if sys.platform == "darwin" else "LD_LIBRARY_PATH"
 os.environ[key] = os.pathsep.join(search + [os.environ.get(key, "")])
@@ -40,6 +42,8 @@ else:
             if not match: continue
             name, path = match.groups()
             if system.match(name): continue
+            if minimal and not name.startswith(("libeccodes", "libaec", "libpng", "libopenjp2", "libavenc_subset")):
+                raise RuntimeError(f"Unexpected native dependency needs review: {name}")
             target = bindir / Path(name).name
             if not target.exists():
                 shutil.copy2(path, target)
@@ -50,7 +54,7 @@ else:
         subprocess.run(["patchelf", "--set-rpath", "$ORIGIN", str(binary)], check=True)
 # Retain upstream copyright/licence files in addition to curated dependency notices.
 licenses = root / "avenc/_native/licenses"
-for name in ("eccodeslib", "eckitlib"):
+for name in (() if minimal else ("eccodeslib", "eckitlib")):
     distribution = importlib.metadata.distribution(name)
     for item in distribution.files or []:
         if ".dist-info/licenses/" in str(item):
@@ -58,7 +62,9 @@ for name in ("eccodeslib", "eckitlib"):
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(distribution.locate_file(item), target)
 
+if minimal:
+    shutil.copytree(minimal/"share/avenc-native-notices", licenses, dirs_exist_ok=True)
 (root/"avenc/_native/dependencies.json").write_text(json.dumps({
-    "build_inputs": {name: importlib.metadata.version(name) for name in ("eccodeslib", "eckitlib")},
+    "build_inputs": json.loads((minimal/"avenc-native-build.json").read_text()) if minimal else {name: importlib.metadata.version(name) for name in ("eccodeslib", "eckitlib")},
     "libraries": [{"file": f.name, "sha256": hashlib.sha256(f.read_bytes()).hexdigest()} for f in sorted(bindir.iterdir()) if ".so" in f.name or f.suffix == ".dylib"],
 }, indent=2) + "\n")

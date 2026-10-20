@@ -24,7 +24,8 @@ dependency closure. FFmpeg and ffprobe remain external executables:
 
 ```sh
 # macOS
-brew install ffmpeg
+brew install ffmpeg-full
+export PATH="$(brew --prefix ffmpeg-full)/bin:$PATH"
 # Debian/Ubuntu
 sudo apt install ffmpeg
 ```

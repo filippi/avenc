@@ -1,0 +1,17 @@
+{
+  "eccodes": {
+    "version": "2.50.0",
+    "url": "https://codeload.github.com/ecmwf/eccodes/tar.gz/refs/tags/2.50.0",
+    "sha256": "f78321e45f3bc7d1ba95ba3efaab2e3cc78ca2a97eefdaae5a85026e06c162c9"
+  },
+  "ecbuild": {
+    "version": "3.16.0",
+    "url": "https://codeload.github.com/ecmwf/ecbuild/tar.gz/refs/tags/3.16.0",
+    "sha256": "69442e80ea6b221c56083ad51cc88596524cef9d59df5ff47148517eeeb1d55f"
+  },
+  "libaec": {
+    "version": "1.1.7",
+    "url": "https://codeload.github.com/MathisRosenhauer/libaec/tar.gz/refs/tags/v1.1.7",
+    "sha256": "26661a569a7def45a2e97fbbd09e0dc5bbb2f8ab1b41250c19e795559eec6fb2"
+  }
+}

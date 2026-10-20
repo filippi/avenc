@@ -30,7 +30,9 @@ jobs:
         with:
           python-version: '3.12'
       - if: runner.os == 'macOS'
-        run: brew install ffmpeg
+        run: |
+          brew install ffmpeg-full
+          echo "$(brew --prefix ffmpeg-full)/bin" >> "$GITHUB_PATH"
       - if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y ffmpeg
       - run: python -m pip install cibuildwheel==4.3.1

@@ -14,7 +14,7 @@ def _run(name):
         missing = [tool for tool in ("ffmpeg", "ffprobe") if not shutil.which(tool)]
         if missing:
             raise SystemExit("AVENC requires FFmpeg/ffprobe on PATH. Install prebuilt FFmpeg "
-                             "with `brew install ffmpeg` or `sudo apt install ffmpeg`. Missing: " + ", ".join(missing))
+                             "with `brew install ffmpeg-full` or `sudo apt install ffmpeg`. Missing: " + ", ".join(missing))
     os.execv(str(binary), [str(binary), *sys.argv[1:]])
 
 
