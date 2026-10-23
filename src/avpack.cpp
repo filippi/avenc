@@ -1,3 +1,6 @@
+#include "avenc_transform.h"
+#include "avenc_recipes.h"
+#include "avenc_pixel_layout.h"
 #include "avenc_version.h"
 #include <algorithm>
 #include <cctype>
@@ -38,12 +41,16 @@ namespace {
 struct Options {
     std::vector<std::string> inputs;
     std::string output_path;
+    std::string recipes_path;
     std::string group_by = "auto"; // auto|var|var-level|level
     std::string codec = "hevc";
     std::string quality = "high";
     int bits = 12;
     std::string mask_fill = "taper3"; // min|taper3 (shared GRIB bitmap only)
     std::string quantization = "auto"; // auto|frameMinMax|groupMinMax
+    std::string transform = "linear"; // linear|log|asinh|shifted-log
+    double asinh_scale=1.0,log_alpha=99.0;
+    bool asinh_scale_set=false,log_alpha_set=false;
     std::string chroma = "420"; // 400|420
     std::string encoder;
     std::vector<std::string> ffmpeg_extra_args;
@@ -58,11 +65,15 @@ struct Options {
 };
 
 struct MessageMeta {
+    int recipe_index=-1;
+    std::string recipe_scope;
+    Options encoding_options;
     size_t global_order = 0;
     int file_index = -1;
     size_t message_index = 0; // absolute index in file (0-based)
     long long file_offset = -1; // byte offset of GRIB message in source file
     std::string short_name;
+    std::string raw_parameter_key; // independent of ecCodes parameter-name definitions
     std::string type_of_level;
     std::string level;
     std::string ensemble_number;
@@ -89,6 +100,9 @@ struct MessageMeta {
     double value_min = std::numeric_limits<double>::quiet_NaN();
     double value_max = std::numeric_limits<double>::quiet_NaN();
     bool apply_log2 = false;
+    bool apply_asinh = false;
+    bool apply_shifted_log = false;
+    double transform_scale = 1.0, transform_origin = 0.0, transform_span = 1.0;
     double log_offset = 1.0;
     double quant_min = std::numeric_limits<double>::quiet_NaN();
     double quant_max = std::numeric_limits<double>::quiet_NaN();
@@ -96,6 +110,7 @@ struct MessageMeta {
 };
 
 struct Group {
+    Options encoding_options;
     std::vector<uint8_t> shared_bitmap; // packed GRIB bits, 1 = valid
     std::string bitmap_md5;
     std::string key;
@@ -117,14 +132,21 @@ struct Group {
 
     size_t frame_start = 0;
     size_t frame_count = 0;
+    double raw_min = std::numeric_limits<double>::infinity(),raw_max = -std::numeric_limits<double>::infinity();
     double value_min = std::numeric_limits<double>::infinity();
     double value_max = -std::numeric_limits<double>::infinity();
     bool apply_log2 = false;
+    bool apply_asinh = false;
+    bool apply_shifted_log = false;
+    double transform_scale = 1.0, transform_origin = 0.0, transform_span = 1.0;
     double log_offset = 1.0;
 };
 
 struct GroupRuntimeInfo {
     bool apply_log2 = false;
+    bool apply_asinh = false;
+    bool apply_shifted_log = false;
+    double transform_scale = 1.0, transform_origin = 0.0, transform_span = 1.0;
     double log_offset = 1.0;
     bool shared_bitmap_present = false;
     std::string shared_bitmap_payload;
@@ -301,7 +323,10 @@ private:
     std::chrono::steady_clock::time_point last_draw_;
 };
 
-int storage_shift_for_bits(int bits) {
+int storage_shift_for_bits(const Options& opts) {
+    const bool ffv1 = opts.encoder == "ffv1" || (opts.encoder.empty() && opts.codec == "ffv1");
+    if (ffv1) return 0;
+    const int bits = opts.bits;
     if (bits > 8 && bits < 16) return 16 - bits;
     return 0;
 }
@@ -313,9 +338,14 @@ void print_usage(std::ostream &os, const char *prog) {
        << "  --out <packed.mp4>                  Output MP4\n"
        << "  --group-by <auto|var|var-level|level>\n"
        << "  --preset <low|medium|high|fast|apple>\n"
-       << "  --codec <avc|hevc|av1|vp9>\n"
+       << "  --codec <avc|hevc|av1|vp9|ffv1>\n"
        << "  --quality <lossless|veryhigh|high|average|fast|verylow|compatible|multiset>\n"
        << "  --bits <8|10|12|16>\n"
+       << "  --transform <linear|log|asinh|shifted-log>    numerical transform (default: linear)\n"
+       << "  --shifted-log                       log after stream min/max normalization\n"
+       << "  --asinh-scale <positive>             asinh(x/scale), default 1\n"
+       << "  --log-alpha <positive>               shifted-log curvature, default 99\n"
+       << "  --log | --asinh | --linear        shortcuts; log2(1+x), asinh(x), or identity\n"
        << "  --quantization <auto|frameMinMax|groupMinMax>\n"
        << "  --mask-fill <min|taper3>           missing-cell fill (default: taper3 for shared masks)\n"
        << "  --chroma <400|420>\n"
@@ -341,6 +371,7 @@ void print_usage(std::ostream &os, const char *prog) {
 }
 
 [[noreturn]] void help(const char *prog) {
+    std::cout << "  --recipes CSV  Apply matching per-field encoding overrides; unmatched fields use CLI defaults\n";
     print_usage(std::cout, prog);
     std::exit(0);
 }
@@ -390,12 +421,24 @@ void parse_args(int argc, char **argv, Options &opts) {
             help(argv[0]);
         } else if (arg == "--group-by" && i + 1 < argc) {
             opts.group_by = argv[++i];
+        } else if (arg == "--recipes" && i + 1 < argc) {
+            opts.recipes_path = argv[++i];
         } else if (arg == "--codec" && i + 1 < argc) {
             opts.codec = argv[++i];
         } else if (arg == "--quality" && i + 1 < argc) {
             opts.quality = argv[++i];
         } else if (arg == "--bits" && i + 1 < argc) {
             opts.bits = std::atoi(argv[++i]);
+        } else if (arg == "--transform" && i + 1 < argc) {
+            opts.transform = argv[++i];
+        } else if (arg == "--asinh-scale" && i + 1 < argc) {
+            size_t end=0;std::string value=argv[++i];opts.asinh_scale=std::stod(value,&end);
+            if(end!=value.size())throw std::runtime_error("Invalid --asinh-scale");opts.asinh_scale_set=true;
+        } else if (arg == "--log-alpha" && i + 1 < argc) {
+            size_t end=0;std::string value=argv[++i];opts.log_alpha=std::stod(value,&end);
+            if(end!=value.size())throw std::runtime_error("Invalid --log-alpha");opts.log_alpha_set=true;
+        } else if (arg == "--log" || arg == "--asinh" || arg == "--linear" || arg == "--shifted-log") {
+            opts.transform = arg.substr(2);
         } else if (arg == "--quantization" && i + 1 < argc) {
             opts.quantization = argv[++i];
         } else if (arg == "--mask-fill" && i + 1 < argc) {
@@ -441,6 +484,15 @@ void parse_args(int argc, char **argv, Options &opts) {
     if (!(opts.bits == 8 || opts.bits == 10 || opts.bits == 12 || opts.bits == 16)) {
         throw std::runtime_error("bits must be 8, 10, 12, or 16");
     }
+    if (opts.transform != "linear" && opts.transform != "log" && opts.transform != "asinh" && opts.transform != "shifted-log")
+        throw std::runtime_error("transform must be linear, log, asinh, or shifted-log");
+    avenc_transform::validate(opts.asinh_scale,0,1);avenc_transform::validate(opts.log_alpha,0,1);
+    if(opts.asinh_scale_set&&opts.transform!="asinh")throw std::runtime_error("--asinh-scale requires --asinh");
+    if(opts.log_alpha_set&&opts.transform!="shifted-log")throw std::runtime_error("--log-alpha requires --shifted-log");
+    if (opts.transform == "shifted-log" && opts.metadata_version == 1)
+        throw std::runtime_error("shifted-log requires binary metadata (--metadata-version 2)");
+    if (opts.transform == "asinh" && opts.metadata_version == 1)
+        throw std::runtime_error("asinh requires binary metadata (--metadata-version 2)");
     if (!(opts.quantization == "auto" ||
           opts.quantization == "frameMinMax" ||
           opts.quantization == "groupMinMax")) {
@@ -463,6 +515,39 @@ void parse_args(int argc, char **argv, Options &opts) {
     }
     std::sort(opts.inputs.begin(), opts.inputs.end());
     apply_preset(opts);
+}
+
+Options recipe_options(const Options& defaults,const avenc_recipes::Rule& rule) {
+    Options effective=defaults;effective.recipes_path.clear();effective.preset.clear();
+    const auto& m=rule.options;
+    auto get=[&](const std::string& key){auto it=m.find(key);return it==m.end()?std::string():it->second;};
+    if(!get("action").empty()&&get("action")!="encode")
+        throw std::runtime_error("Recipe line "+std::to_string(rule.line)+" requests source GRIB retention; it cannot be encoded into MP4. Retain that field separately or remove the rule explicitly.");
+    for(const std::string key:{"bits","gop","crf"})if(!get(key).empty()){
+        size_t end=0;const auto n=std::stoll(get(key),&end);
+        if(end!=get(key).size()||n>1000000||n<(key=="crf"?-1:1))throw std::runtime_error("Invalid recipe integer: "+key);
+    }
+    std::vector<std::string> args={"recipe"};
+    for(const std::string key:{"codec","quality","encoder","bits","quantization","transform","chroma"})if(!get(key).empty()){args.push_back("--"+key);args.push_back(get(key));}
+    if(!get("group_by").empty()){args.push_back("--group-by");args.push_back(get("group_by"));}
+    const bool replace_video=m.count("codec")||m.count("encoder")||m.count("quality");
+    if(replace_video){effective.ffmpeg_extra_args.clear();effective.force_crf=-1;}
+    if(m.count("transform")){effective.asinh_scale_set=false;effective.log_alpha_set=false;effective.asinh_scale=1;effective.log_alpha=99;}
+    const auto transform=m.count("transform")?get("transform"):effective.transform;
+    if(!get("transform_parameter").empty()){
+        if(transform=="asinh")args.insert(args.end(),{"--asinh-scale",get("transform_parameter")});
+        else if(transform=="shifted-log")args.insert(args.end(),{"--log-alpha",get("transform_parameter")});
+        else if(get("transform_parameter")!="1")throw std::runtime_error("transform_parameter only applies to asinh/shifted-log");
+    }
+    if(!get("crf").empty()&&get("crf")!="-1")args.insert(args.end(),{"--force-crf",get("crf")});
+    std::vector<char*> argv;for(auto& a:args)argv.push_back(a.data());parse_args(int(argv.size()),argv.data(),effective);
+    if(effective.group_by!="var"&&effective.group_by!="var-level"&&effective.group_by!="auto"&&effective.group_by!="level")throw std::runtime_error("Invalid recipe group_by");
+    if(!get("gop").empty()){
+        size_t end=0;int g=std::stoi(get("gop"),&end);if(end!=get("gop").size()||g<1)throw std::runtime_error("Invalid recipe GOP");
+        if(effective.encoder!="ffv1")effective.ffmpeg_extra_args.insert(effective.ffmpeg_extra_args.end(),{"-g",std::to_string(g)});
+    }
+    if(effective.encoder=="libaom-av1")effective.ffmpeg_extra_args.insert(effective.ffmpeg_extra_args.end(),{"-cpu-used",effective.quality=="lossless"?"4":"6","-row-mt","1","-lag-in-frames","0","-aq-mode","0","-tile-columns","0"});
+    return effective;
 }
 
 std::string get_codes_value_as_string(codes_handle *h, const std::string &key) {
@@ -524,17 +609,12 @@ CrfBounds crf_bounds_for_options(const Options &opts) {
     return {};
 }
 
-bool short_name_uses_log2(const std::string &short_name) {
-    const std::string sn = lower_copy(trim(short_name));
-    // Power-law precipitation fields: normalize in log2 domain before quantization.
-    return (sn == "rdp" || sn == "precip");
-}
-
-double encode_transform(double value, bool apply_log2, double log_offset) {
-    if (!apply_log2) return value;
-    if (!std::isfinite(value)) return value;
-    if (value < 0.0) value = 0.0;
-    return std::log2(value + log_offset);
+// Applied before range quantization; inverse is recorded per stream.
+double encode_transform(double value, bool log, bool asinh, double offset,
+                        bool shifted=false, double scale=1, double origin=0, double span=1) {
+    double result=avenc_transform::forward(value,log,asinh,offset,shifted,scale,origin,span);
+    if(std::isfinite(value)&&!std::isfinite(result))throw std::runtime_error("Numerical transform overflow; choose a larger scale");
+    return result;
 }
 
 std::string make_iso_timestamp_core(const std::string &date,
@@ -609,19 +689,22 @@ std::string grid_key(const MessageMeta &m) {
 
 std::string grouping_key(const MessageMeta &m, const std::string &mode) {
     const std::string ensemble = m.ensemble_number + "|" + m.perturbation_number;
+    const std::string variable = m.short_name == "unknown"
+        ? m.short_name + "|" + m.raw_parameter_key : m.short_name;
     if (mode == "var") {
-        return m.short_name + "|" + m.type_of_level + "|" + ensemble + "|" + grid_key(m);
+        return variable + "|" + m.type_of_level + "|" + ensemble + "|" + grid_key(m);
     }
     if (mode == "level") {
         return m.type_of_level + "|" + m.level + "|" + ensemble + "|" + grid_key(m);
     }
     // var-level
-    return m.short_name + "|" + m.type_of_level + "|" + m.level + "|" + ensemble + "|" + grid_key(m);
+    return variable + "|" + m.type_of_level + "|" + m.level + "|" + ensemble + "|" + grid_key(m);
 }
 
 std::string template_cache_key(const MessageMeta &m, codes_handle *h) {
     std::ostringstream oss;
     oss << m.short_name << "|"
+        << m.raw_parameter_key << "|"
         << m.type_of_level << "|"
         << m.level << "|"
         << m.ensemble_number << "|"
@@ -728,6 +811,22 @@ std::vector<std::pair<std::string, std::string>> encoder_options(const Options &
         }
         add("-pix_fmt", gray_pixfmt(bits));
     };
+
+    if (selected_encoder == "ffv1") {
+        if (opts.quality != "lossless" || effective_chroma != "400")
+            throw std::runtime_error("FFV1 requires --quality lossless --chroma 400");
+        if (opts.force_crf >= 0)
+            throw std::runtime_error("FFV1 is lossless and has no CRF; omit --force-crf");
+        // FFV1 is intra-only; never forward x264/x265 preset or CRF options.
+        add("-pix_fmt", "+" + gray_pixfmt(opts.bits));
+        add("-level", "3");
+        add("-coder", "1");
+        add("-context", "1");
+        add("-slicecrc", "1");
+        add("-g", "1");
+        if (opts.threads > 0) add("-threads", std::to_string(opts.threads));
+        return out;
+    }
 
     if (opts.quality == "lossless") {
         set_pixfmt(opts.bits);
@@ -1241,7 +1340,7 @@ FastPathPayload try_extract_simple_packed_fastpath(const Options &opts,
                                                    codes_handle *h,
                                                    size_t pixels) {
     FastPathPayload fp;
-    if (!h || !opts.fast_path || runtime_info.apply_log2 || runtime_info.adaptive_group_minmax) return fp;
+    if (!h || !opts.fast_path || runtime_info.apply_log2 || runtime_info.apply_asinh || runtime_info.apply_shifted_log || runtime_info.adaptive_group_minmax) return fp;
 
     long bit_map_indicator = -1;
     if (codes_get_long(h, "bitMapIndicator", &bit_map_indicator) != 0 || bit_map_indicator != 255) {
@@ -1544,6 +1643,8 @@ void scan_messages(const Options &opts,
                    ScanProfile *profile = nullptr,
                    const std::function<void(uint64_t, uint64_t)> &progress_cb = {}) {
     using clock = std::chrono::steady_clock;
+    const avenc_recipes::Table recipes(opts.recipes_path);
+    std::map<int,Options> recipe_settings;
     global_min = std::numeric_limits<double>::infinity();
     global_max = -std::numeric_limits<double>::infinity();
     const bool skip_template = (std::getenv("AVPACK_SKIP_TEMPLATE") != nullptr);
@@ -1576,6 +1677,14 @@ void scan_messages(const Options &opts,
             m.file_offset = file_offset;
 
             m.short_name = get_codes_value_as_string(h, "shortName");
+            // Include GRIB1/2 code-table context: distinct unknown parameters
+            // must never share a reconstruction template or default variable stream.
+            for (const auto* key : {"edition","discipline","parameterCategory","parameterNumber",
+                                    "table2Version","indicatorOfParameter","centre","subCentre",
+                                    "tablesVersion","localTablesVersion"}) {
+                const auto value = get_codes_value_as_string(h, key);
+                m.raw_parameter_key += std::string(key)+"="+std::to_string(value.size())+":"+value+"|";
+            }
             m.type_of_level = get_codes_value_as_string(h, "typeOfLevel");
             m.level = get_codes_value_as_string(h, "level");
             m.ensemble_number = get_codes_value_as_string(h, "number");
@@ -1591,8 +1700,18 @@ void scan_messages(const Options &opts,
                 m.step_range,
                 m.validity_date,
                 m.validity_time);
-            m.apply_log2 = short_name_uses_log2(m.short_name);
+            m.recipe_index=recipes.match(h);
+            if(m.recipe_index>=0&&!recipe_settings.count(m.recipe_index))recipe_settings.emplace(m.recipe_index,recipe_options(opts,recipes.rules.at(size_t(m.recipe_index))));
+            const Options& field_opts=m.recipe_index<0?opts:recipe_settings.at(m.recipe_index);
+            m.encoding_options=field_opts;
+            // Prevent unlike statistics/initializations from sharing recipe streams.
+            for(const auto* key:{"stepType","stepUnits","dataDate","dataTime","typeOfEnsembleForecast","percentileValue","probabilityType"})
+                m.recipe_scope+=get_codes_value_as_string(h,key)+"|";
+            m.apply_log2 = field_opts.transform == "log";
+            m.apply_asinh = field_opts.transform == "asinh";
             m.log_offset = 1.0;
+            m.apply_shifted_log=field_opts.transform=="shifted-log";
+            m.transform_scale=m.apply_shifted_log?field_opts.log_alpha:field_opts.asinh_scale;
 
             long lval = 0;
             double dval = 0.0;
@@ -1665,8 +1784,8 @@ void scan_messages(const Options &opts,
             }
 
             if (std::isfinite(m.value_min) && std::isfinite(m.value_max)) {
-                m.quant_min = encode_transform(m.value_min, m.apply_log2, m.log_offset);
-                m.quant_max = encode_transform(m.value_max, m.apply_log2, m.log_offset);
+                m.quant_min = m.apply_shifted_log?m.value_min:encode_transform(m.value_min, m.apply_log2, m.apply_asinh, m.log_offset,false,m.transform_scale);
+                m.quant_max = m.apply_shifted_log?m.value_max:encode_transform(m.value_max, m.apply_log2, m.apply_asinh, m.log_offset,false,m.transform_scale);
             }
 
             if (std::isfinite(m.quant_min) && m.quant_min < global_min) global_min = m.quant_min;
@@ -1724,15 +1843,18 @@ std::vector<Group> build_groups(const std::vector<MessageMeta> &messages, const 
 
     for (size_t i = 0; i < messages.size(); ++i) {
         const auto &m = messages[i];
-        std::string key = grouping_key(m, mode);
+        const std::string effective_mode=m.recipe_index<0||m.encoding_options.group_by=="auto"?mode:m.encoding_options.group_by;
+        std::string key = grouping_key(m, effective_mode);
+        if(m.recipe_index>=0)key+="|recipe="+std::to_string(m.recipe_index)+"|"+m.recipe_scope;
 
         auto &g = group_map[key];
         if (g.key.empty()) {
             g.key = key;
-            g.label = group_label(m, mode);
+            g.label = group_label(m, effective_mode);
+            g.encoding_options=m.encoding_options;
             g.short_name = m.short_name;
             g.type_of_level = m.type_of_level;
-            g.level = (mode == "var") ? "" : m.level;
+            g.level = (effective_mode == "var") ? "" : m.level;
             g.nx = m.nx;
             g.ny = m.ny;
             g.lat_first = m.lat_first;
@@ -1742,11 +1864,16 @@ std::vector<Group> build_groups(const std::vector<MessageMeta> &messages, const 
             g.dx = m.dx;
             g.dy = m.dy;
             g.apply_log2 = m.apply_log2;
+            g.apply_asinh = m.apply_asinh;
             g.log_offset = m.log_offset;
+            g.apply_shifted_log=m.apply_shifted_log;g.transform_scale=m.transform_scale;
         }
 
+        if(std::isfinite(m.value_min))g.raw_min=std::min(g.raw_min,m.value_min);
+        if(std::isfinite(m.value_max))g.raw_max=std::max(g.raw_max,m.value_max);
         g.message_indices.push_back(i);
         g.apply_log2 = g.apply_log2 || m.apply_log2;
+        g.apply_asinh = g.apply_asinh || m.apply_asinh;
         if (std::isfinite(m.quant_min) && m.quant_min < g.value_min) g.value_min = m.quant_min;
         if (std::isfinite(m.quant_max) && m.quant_max > g.value_max) g.value_max = m.quant_max;
     }
@@ -1768,6 +1895,12 @@ std::vector<Group> build_groups(const std::vector<MessageMeta> &messages, const 
                       return ma.timestamp < mb.timestamp;
                   });
         g.frame_count = g.message_indices_sorted.size();
+        if(g.apply_shifted_log){
+            g.transform_origin=std::isfinite(g.raw_min)?g.raw_min:0;
+            g.transform_span=g.raw_max>g.raw_min?g.raw_max-g.raw_min:1;
+            avenc_transform::validate(g.transform_scale,g.transform_origin,g.transform_span);
+            g.value_min=0;g.value_max=g.raw_max>g.raw_min?1:0;
+        }
         if (std::isfinite(g.value_min) && std::isfinite(g.value_max) && g.value_max <= g.value_min) {
             const double eps = std::max(1e-9, std::fabs(g.value_min) * 1e-9);
             g.value_max = g.value_min + eps;
@@ -1872,6 +2005,10 @@ std::pair<double, double> quant_range_for_record(const Options &opts,
     const bool use_group_minmax = use_group_minmax_for_group(opts, g, messages);
     double frame_min = use_group_minmax ? g.value_min : m.quant_min;
     double frame_max = use_group_minmax ? g.value_max : m.quant_max;
+    if(g.apply_shifted_log&&!use_group_minmax){
+        frame_min=encode_transform(m.value_min,false,false,1,true,g.transform_scale,g.transform_origin,g.transform_span);
+        frame_max=encode_transform(m.value_max,false,false,1,true,g.transform_scale,g.transform_origin,g.transform_span);
+    }
     if (!std::isfinite(frame_min) || !std::isfinite(frame_max) || frame_max <= frame_min) {
         frame_min = g.value_min;
         frame_max = g.value_max;
@@ -1924,7 +2061,7 @@ size_t encode_single_group_streaming(const Options &opts,
                                      double *template_deferred_sec,
                                      const std::function<void(uint64_t)> &progress_cb = {}) {
     const size_t pixels = static_cast<size_t>(group.nx) * static_cast<size_t>(group.ny);
-    const int storage_shift = storage_shift_for_bits(opts.bits);
+    const int storage_shift = storage_shift_for_bits(opts);
     const uint32_t scale = (1u << opts.bits) - 1u;
     const int pad_align = detect_padding_alignment(opts);
     const int enc_nx = align_up_to(group.nx, pad_align);
@@ -1932,7 +2069,9 @@ size_t encode_single_group_streaming(const Options &opts,
     const size_t enc_pixels = static_cast<size_t>(enc_nx) * static_cast<size_t>(enc_ny);
 
     runtime_info.apply_log2 = group.apply_log2;
+    runtime_info.apply_asinh = group.apply_asinh;
     runtime_info.log_offset = group.log_offset;
+    runtime_info.apply_shifted_log=group.apply_shifted_log;runtime_info.transform_scale=group.transform_scale;runtime_info.transform_origin=group.transform_origin;runtime_info.transform_span=group.transform_span;
     runtime_info.shared_bitmap_present = false;
     runtime_info.shared_bitmap_payload.clear();
     runtime_info.adaptive_group_minmax = use_adaptive_group_minmax_for_group(opts, group, messages);
@@ -1950,7 +2089,7 @@ size_t encode_single_group_streaming(const Options &opts,
 
     std::ostringstream cmd;
     cmd << "ffmpeg -y -loglevel error"
-        << " -f rawvideo -pix_fmt " << ((opts.bits <= 8) ? "gray8" : "gray16le")
+        << " -f rawvideo -pix_fmt " << avenc_raw_gray_format(opts.bits, storage_shift_for_bits(opts))
         << " -video_size " << enc_nx << "x" << enc_ny
         << " -framerate 1"
         << " -i -";
@@ -2110,7 +2249,7 @@ size_t encode_single_group_streaming(const Options &opts,
                 for (size_t i = 0; i < pixels; ++i) {
                     const double raw = values[i];
                     if (field_missing(raw, bitmap, i)) continue;
-                    const double tv = encode_transform(raw, runtime_info.apply_log2, runtime_info.log_offset);
+                    const double tv = encode_transform(raw, runtime_info.apply_log2, runtime_info.apply_asinh, runtime_info.log_offset, runtime_info.apply_shifted_log, runtime_info.transform_scale, runtime_info.transform_origin, runtime_info.transform_span);
                     values[i] = tv;
                     if (tv < data_min) data_min = tv;
                     if (tv > data_max) data_max = tv;
@@ -2161,7 +2300,7 @@ size_t encode_single_group_streaming(const Options &opts,
                         q = 0u;
                     } else {
                         if (!values_pretransformed) {
-                            v = encode_transform(v, runtime_info.apply_log2, runtime_info.log_offset);
+                            v = encode_transform(v, runtime_info.apply_log2, runtime_info.apply_asinh, runtime_info.log_offset, runtime_info.apply_shifted_log, runtime_info.transform_scale, runtime_info.transform_origin, runtime_info.transform_span);
                         }
                         if (v < frame_min) v = frame_min;
                         if (v > frame_max) v = frame_max;
@@ -2194,7 +2333,7 @@ size_t encode_single_group_streaming(const Options &opts,
                         q = 0u;
                     } else {
                         if (!values_pretransformed) {
-                            v = encode_transform(v, runtime_info.apply_log2, runtime_info.log_offset);
+                            v = encode_transform(v, runtime_info.apply_log2, runtime_info.apply_asinh, runtime_info.log_offset, runtime_info.apply_shifted_log, runtime_info.transform_scale, runtime_info.transform_origin, runtime_info.transform_span);
                         }
                         if (v < frame_min) v = frame_min;
                         if (v > frame_max) v = frame_max;
@@ -2270,11 +2409,13 @@ void write_group_raw_files(const Options &opts,
     }
 
     const size_t bytes_per_pixel = (opts.bits <= 8) ? sizeof(uint8_t) : sizeof(uint16_t);
-    const int storage_shift = storage_shift_for_bits(opts.bits);
+    const int storage_shift = storage_shift_for_bits(opts);
     runtime_infos.assign(groups.size(), GroupRuntimeInfo{});
     for (size_t gid = 0; gid < groups.size(); ++gid) {
         runtime_infos[gid].apply_log2 = groups[gid].apply_log2;
+        runtime_infos[gid].apply_asinh = groups[gid].apply_asinh;
         runtime_infos[gid].log_offset = groups[gid].log_offset;
+    runtime_infos[gid].apply_shifted_log=groups[gid].apply_shifted_log;runtime_infos[gid].transform_scale=groups[gid].transform_scale;runtime_infos[gid].transform_origin=groups[gid].transform_origin;runtime_infos[gid].transform_span=groups[gid].transform_span;
         runtime_infos[gid].adaptive_group_minmax =
             use_adaptive_group_minmax_for_group(opts, groups[gid], messages);
         runtime_infos[gid].encoded_nx = groups[gid].nx;
@@ -2384,7 +2525,7 @@ void write_group_raw_files(const Options &opts,
                 for (size_t i = 0; i < pixels; ++i) {
                     const double raw = values[i];
                     if (field_missing(raw, bitmap, i)) continue;
-                    const double tv = encode_transform(raw, ri.apply_log2, ri.log_offset);
+                    const double tv = encode_transform(raw, ri.apply_log2, ri.apply_asinh, ri.log_offset, ri.apply_shifted_log, ri.transform_scale, ri.transform_origin, ri.transform_span);
                     values[i] = tv;
                     if (tv < data_min) data_min = tv;
                     if (tv > data_max) data_max = tv;
@@ -2448,7 +2589,7 @@ void write_group_raw_files(const Options &opts,
                         q = 0u;
                     } else {
                         if (!values_pretransformed) {
-                            v = encode_transform(v, ri.apply_log2, ri.log_offset);
+                            v = encode_transform(v, ri.apply_log2, ri.apply_asinh, ri.log_offset, ri.apply_shifted_log, ri.transform_scale, ri.transform_origin, ri.transform_span);
                         }
                         if (v < frame_min) v = frame_min;
                         if (v > frame_max) v = frame_max;
@@ -2482,7 +2623,7 @@ void write_group_raw_files(const Options &opts,
                         q = 0u;
                     } else {
                         if (!values_pretransformed) {
-                            v = encode_transform(v, ri.apply_log2, ri.log_offset);
+                            v = encode_transform(v, ri.apply_log2, ri.apply_asinh, ri.log_offset, ri.apply_shifted_log, ri.transform_scale, ri.transform_origin, ri.transform_span);
                         }
                         if (v < frame_min) v = frame_min;
                         if (v > frame_max) v = frame_max;
@@ -2554,7 +2695,7 @@ std::string build_metadata_json(const Options &opts,
     auto longitudes = build_longitudes(groups.front());
 
     std::ostringstream meta;
-    const int storage_shift = storage_shift_for_bits(opts.bits);
+    const int storage_shift = storage_shift_for_bits(opts);
 
     meta << "{\"schema\":\"avenc.pack.v1\"";
     size_t total_frames = 0;
@@ -2592,6 +2733,7 @@ std::string build_metadata_json(const Options &opts,
          << ",\"max_value\":" << global_max
          << ",\"storage_shift\":" << storage_shift
          << ",\"quantization\":\"" << quantization_mode << "\""
+         << ",\"transform\":\"" << opts.transform << "\""
          << ",\"chroma\":\"" << json_escape(opts.chroma) << "\""
          << ",\"apply_log2\":" << (any_log2 ? "true" : "false")
          << ",\"allow_nan\":true"
@@ -2607,6 +2749,8 @@ std::string build_metadata_json(const Options &opts,
     std::vector<Assignment> msg_to_assignment(messages.size(), Assignment{-1, 0});
     for (size_t gi = 0; gi < groups.size(); ++gi) {
         const auto &g = groups[gi];
+        const auto& opts=g.encoding_options;
+        const int storage_shift=storage_shift_for_bits(opts);
         for (size_t fi = 0; fi < g.message_indices_sorted.size(); ++fi) {
             size_t mi = g.message_indices_sorted[fi];
             msg_to_assignment[mi] = Assignment{static_cast<int>(gi), fi};
@@ -2619,6 +2763,8 @@ std::string build_metadata_json(const Options &opts,
     std::vector<std::string> stream_templates(groups.size(), "-");
     for (size_t gi = 0; gi < groups.size(); ++gi) {
         const auto &g = groups[gi];
+        const auto& opts=g.encoding_options;
+        const int storage_shift=storage_shift_for_bits(opts);
         const auto &ri = runtime_infos[gi];
         const std::string bitmap_payload = ri.shared_bitmap_present ? ri.shared_bitmap_payload : "-";
         std::string stream_template = "-";
@@ -2630,7 +2776,7 @@ std::string build_metadata_json(const Options &opts,
         recon << "STREAM\t" << gi << "\t" << g.frame_count << "\t" << opts.bits << "\t"
               << std::setprecision(17) << g.value_min << "\t" << g.value_max
               << "\t" << storage_shift
-              << "\t" << (ri.apply_log2 ? "log2p1" : "linear")
+              << "\t" << (ri.apply_shifted_log ? "shifted-log" : ri.apply_asinh ? "asinh" : ri.apply_log2 ? "log2p1" : "linear")
               << "\t" << ri.log_offset
               << "\t" << bitmap_payload
               << "\t" << stream_template
@@ -2638,6 +2784,7 @@ std::string build_metadata_json(const Options &opts,
               << "\t" << ri.encoded_ny
               << "\t" << ri.crop_nx
               << "\t" << ri.crop_ny
+              << "\t" << ri.transform_scale << "\t" << ri.transform_origin << "\t" << ri.transform_span
               << "\n";
     }
     for (size_t mi = 0; mi < messages.size(); ++mi) {
@@ -2646,6 +2793,8 @@ std::string build_metadata_json(const Options &opts,
         if (asg.group_id < 0) continue;
         const size_t gi = static_cast<size_t>(asg.group_id);
         const auto &g = groups[gi];
+        const auto& opts=g.encoding_options;
+        const int storage_shift=storage_shift_for_bits(opts);
         const auto &ri = runtime_infos[gi];
         auto quant_range = quant_range_for_assignment(
             opts, g, m, messages, &ri, asg.frame_index_in_group);
@@ -2702,6 +2851,8 @@ std::string build_metadata_json(const Options &opts,
     meta << ",\"groups\":[";
     for (size_t gi = 0; gi < groups.size(); ++gi) {
         const auto &g = groups[gi];
+        const auto& opts=g.encoding_options;
+        const int storage_shift=storage_shift_for_bits(opts);
         const auto &ri = runtime_infos[gi];
         if (gi) meta << ',';
         const bool use_group_minmax = use_group_minmax_for_group(opts, g, messages);
@@ -2758,7 +2909,12 @@ std::string build_metadata_json(const Options &opts,
              << ",\"quantization\":\"" << group_quant_mode << "\""
              << ",\"chroma\":\"" << json_escape(group_chroma) << "\""
              << ",\"apply_log2\":" << (ri.apply_log2 ? "true" : "false")
+             << ",\"apply_asinh\":" << (ri.apply_asinh ? "true" : "false")
              << ",\"log_offset\":" << ri.log_offset
+             << ",\"apply_shifted_log\":" << (ri.apply_shifted_log?"true":"false")
+             << ",\"transform_scale\":" << ri.transform_scale
+             << ",\"transform_origin\":" << ri.transform_origin
+             << ",\"transform_span\":" << ri.transform_span
              << ",\"allow_nan\":true"
              << ",\"frame_rate\":1"
              << ",\"flip_ud\":false"
@@ -2828,13 +2984,15 @@ std::string build_comment_binary_v2(const Options &opts,
     }
     const int nx = groups.front().nx;
     const int ny = groups.front().ny;
-    const int storage_shift = storage_shift_for_bits(opts.bits);
+    const int storage_shift = storage_shift_for_bits(opts);
     const auto latitudes = build_latitudes(groups.front());
     const auto longitudes = build_longitudes(groups.front());
 
     std::vector<Assignment> msg_to_assignment(messages.size(), Assignment{-1, 0});
     for (size_t gi = 0; gi < groups.size(); ++gi) {
         const auto &g = groups[gi];
+        const auto& opts=g.encoding_options;
+        const int storage_shift=storage_shift_for_bits(opts);
         for (size_t fi = 0; fi < g.message_indices_sorted.size(); ++fi) {
             const size_t mi = g.message_indices_sorted[fi];
             msg_to_assignment[mi] = Assignment{static_cast<int>(gi), fi};
@@ -2844,6 +3002,8 @@ std::string build_comment_binary_v2(const Options &opts,
     std::vector<std::string> stream_templates(groups.size(), "");
     for (size_t gi = 0; gi < groups.size(); ++gi) {
         const auto &g = groups[gi];
+        const auto& opts=g.encoding_options;
+        const int storage_shift=storage_shift_for_bits(opts);
         if (!g.message_indices_sorted.empty()) {
             const auto &m0 = messages[g.message_indices_sorted.front()];
             stream_templates[gi] = m0.template_b64;
@@ -2859,12 +3019,14 @@ std::string build_comment_binary_v2(const Options &opts,
     payload.reserve(64u + groups.size() * 256u + record_count * 320u);
 
     // AVENCv2 binary layout (little-endian):
-    // magic[8]="AV2META\0", format_version(u32)=2, flags(u32),
+    // magic[8]="AV2META\0", format_version(u32)=2/3/4, flags(u32),
     // nx(u32), ny(u32), stream_count(u32), record_count(u32), reserved(u32),
     // stream table, then record table.
     const char magic[8] = {'A', 'V', '2', 'M', 'E', 'T', 'A', '\0'};
     payload.insert(payload.end(), magic, magic + 8);
-    append_u32le(payload, 2u); // binary format version (v2 = no JSON path)
+    bool extended_transform=false,any_asinh=false;
+    for(const auto& g:groups){extended_transform|=g.apply_shifted_log||(g.apply_asinh&&g.transform_scale!=1);any_asinh|=g.apply_asinh;}
+    append_u32le(payload, extended_transform?4u:any_asinh?3u:2u); // rev3: unit asinh; rev4: scaled/shifted transforms and 3 Float64 parameters
     append_u32le(payload, 1u); // flags bit 0: appended latitude/longitude arrays
     append_u32le(payload, static_cast<uint32_t>(nx));
     append_u32le(payload, static_cast<uint32_t>(ny));
@@ -2874,6 +3036,8 @@ std::string build_comment_binary_v2(const Options &opts,
 
     for (size_t gi = 0; gi < groups.size(); ++gi) {
         const auto &g = groups[gi];
+        const auto& opts=g.encoding_options;
+        const int storage_shift=storage_shift_for_bits(opts);
         const auto &ri = runtime_infos[gi];
         const std::string bitmap_payload = ri.shared_bitmap_present ? ri.shared_bitmap_payload : "";
 
@@ -2883,8 +3047,9 @@ std::string build_comment_binary_v2(const Options &opts,
         append_i32le(payload, storage_shift);
         append_f64le(payload, g.value_min);
         append_f64le(payload, g.value_max);
-        append_u32le(payload, ri.apply_log2 ? 1u : 0u);
+        append_u32le(payload, avenc_transform::mode(ri.apply_log2,ri.apply_asinh,ri.apply_shifted_log,ri.transform_scale));
         append_f64le(payload, ri.log_offset);
+        if(extended_transform){append_f64le(payload,ri.transform_scale);append_f64le(payload,ri.transform_origin);append_f64le(payload,ri.transform_span);}
         append_u32le(payload, static_cast<uint32_t>(ri.encoded_nx));
         append_u32le(payload, static_cast<uint32_t>(ri.encoded_ny));
         append_u32le(payload, static_cast<uint32_t>(ri.crop_nx));
@@ -2899,6 +3064,8 @@ std::string build_comment_binary_v2(const Options &opts,
         if (asg.group_id < 0) continue;
         const size_t gi = static_cast<size_t>(asg.group_id);
         const auto &g = groups[gi];
+        const auto& opts=g.encoding_options;
+        const int storage_shift=storage_shift_for_bits(opts);
         const auto &ri = runtime_infos[gi];
         const auto quant_range = quant_range_for_assignment(
             opts, g, m, messages, &ri, asg.frame_index_in_group);
@@ -2957,7 +3124,7 @@ std::vector<std::string> build_group_encode_args(const Options &opts,
     args.emplace_back("-f");
     args.emplace_back("rawvideo");
     args.emplace_back("-pix_fmt");
-    args.emplace_back(opts.bits <= 8 ? "gray8" : "gray16le");
+    args.emplace_back(avenc_raw_gray_format(opts.bits, storage_shift_for_bits(opts)));
     args.emplace_back("-video_size");
     args.emplace_back(std::to_string(nx) + "x" + std::to_string(ny));
     args.emplace_back("-framerate");
@@ -3162,7 +3329,7 @@ int main(int argc, char **argv) {
                    << ", chroma=" << opts.chroma;
         if (!opts.encoder.empty()) compressor << ", encoder=" << opts.encoder;
         compressor << ")";
-        stats.compressor = compressor.str();
+        stats.compressor = opts.recipes_path.empty()?compressor.str():"per-stream recipes (unmatched streams use "+compressor.str()+")";
 
         if (!opts.quiet) {
             if (opts.verbose) {
@@ -3178,6 +3345,10 @@ int main(int argc, char **argv) {
                               << " level=" << g.level
                               << " frames=" << g.frame_count
                               << " frame_start=" << g.frame_start
+                              << " codec=" << g.encoding_options.codec
+                              << " bits=" << g.encoding_options.bits
+                              << " transform=" << g.encoding_options.transform
+                              << " quantization=" << g.encoding_options.quantization
                               << " range=[" << g.value_min << ", " << g.value_max << "]"
                               << "\n";
                 }
@@ -3231,7 +3402,7 @@ int main(int argc, char **argv) {
         std::unordered_map<std::string, std::string> deferred_template_cache;
         for (size_t gid = 0; gid < groups.size(); ++gid) {
             fastpath_frames_total += static_cast<uint64_t>(encode_single_group_streaming(
-                opts,
+                groups[gid].encoding_options,
                 messages,
                 groups[gid],
                 group_video_paths[gid],

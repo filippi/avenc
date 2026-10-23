@@ -15,11 +15,13 @@ def _string(value: str) -> bytes:
     return struct.pack("<I", len(encoded)) + encoded
 
 
-def _v2_comment(*, include_coords: bool = True) -> str:
+def _v2_comment(*, include_coords: bool = True, version: int = 2, transform: int = 0) -> str:
     flags = 1 if include_coords else 0
     payload = bytearray(b"AV2META\0")
-    payload += struct.pack("<7I", 2, flags, 3, 2, 1, 1, 0)
-    payload += struct.pack("<iIIiddIdIIII", 0, 1, 10, 6, 200.0, 300.0, 0, 1.0, 3, 2, 3, 2)
+    payload += struct.pack("<7I", version, flags, 3, 2, 1, 1, 0)
+    payload += struct.pack("<iIIiddId", 0, 1, 10, 6, 200.0, 300.0, transform, 1.0)
+    if version == 4:payload += struct.pack("<3d",.25,-10.,20.)
+    payload += struct.pack("<4I",3,2,3,2)
     payload += _string("") + _string("template")
     payload += struct.pack("<QiIiQddIii", 0, 0, 0, 0, 0, 200.0, 300.0, 0, 16, 0)
     for value in ("2t", "surface", "0", "20250101", "0000", "0", "2025-01-01T00:00:00Z", "0", "0", ""):
@@ -55,3 +57,20 @@ def test_decode_binary_v2_rejects_truncation() -> None:
     truncated = "AVENCv2|" + base64.b64encode(zlib.compress(payload)).decode("ascii")
     with pytest.raises(ValueError, match="Truncated AVENCv2 field"):
         _decode_metadata_comment(truncated)
+
+
+@pytest.mark.parametrize("version,mode", [(2,0),(2,1),(3,2),(4,3),(4,4)])
+def test_transform_modes(version, mode):
+    metadata = _decode_metadata_comment(_v2_comment(version=version, transform=mode))
+    options = metadata["groups"][0]["options"]
+    assert options["apply_log2"] == (mode == 1)
+    assert options["apply_asinh"] == (mode in (2,3))
+    assert metadata["binary_format_version"] == version
+    assert options["apply_shifted_log"] == (mode==4)
+    assert options["transform_scale"] == (.25 if version==4 else 1)
+
+
+@pytest.mark.parametrize("version,mode", [(2,2),(3,3),(99,0)])
+def test_reject_unknown_transform_or_binary_revision(version, mode):
+    with pytest.raises(ValueError, match="Unsupported"):
+        _decode_metadata_comment(_v2_comment(version=version, transform=mode))

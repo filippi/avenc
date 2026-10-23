@@ -122,11 +122,83 @@ Very small grids may not fit a profile's tile arrangement (the default AV1
 profile currently fails on a 64 × 64 synthetic field). Use `--fast` or a custom
 encoder configuration with suitable tiling for such inputs.
 
-All shortcuts use automatic quantization-range selection. `auto` selects the
+All shortcuts use automatic quantization-range selection unless overridden with `--quantization`. `auto` selects the
 range policy per grouped stream; it can mix `frameMinMax` and `groupMinMax` in
 one MP4. `--enc` selects a named configuration; `--enc_config_table profiles.csv`
 loads custom configurations. See `grib2avenc --help` and `avpack --help` for
 advanced codec, normalization, grouping and metadata options.
+
+
+### Explicit numerical transforms (current source build)
+
+Linear scaling remains the default for every parameter. Range selection and
+numerical transforms are independent:
+
+```sh
+grib2avenc --lossless --quantization frameMinMax runoff.grib runoff.mp4
+grib2avenc --lossless --quantization frameMinMax --log runoff.grib runoff.log.mp4
+grib2avenc --high --asinh vertical_velocity.grib vertical_velocity.mp4
+```
+
+Both `grib2avenc` and `avpack` accept `--transform linear|log|asinh|shifted-log`
+and matching shortcuts. Range selection (`--quantization`) is independent.
+Linear remains the default; no parameter-name rule enables a transform.
+
+| Transform | Forward mapping | Parameters |
+| --- | --- | --- |
+| Linear | `x` | None |
+| Log | `log2(1+x)` | Nonnegative data; unchanged legacy unit scale |
+| Scaled asinh | `asinh(x/s)` | `--asinh-scale s`, positive, default 1 |
+| Shifted log | `log1p(alpha*z)/log1p(alpha)`, `z=(x-a)/b` | `--log-alpha alpha`, positive, default 99 |
+
+For shifted log, `a` is the physical minimum over the stream and `b` its physical
+range. A constant stream uses `b=1`; missing values are excluded. This maps the
+stream's finite range to `[0,1]`, then applies log on `[1,1+alpha]`. It accepts
+signed data and inverts as `a+b*expm1(y*log1p(alpha))/alpha`. These normalization
+bounds remain fixed within the stream; frameMinMax can still quantize each
+frame's transformed range. Shifted log allocates more precision near the **stream
+minimum**, not around zero. Scaled asinh preserves sign and centres its nearly
+linear region around zero, with inverse `s*sinh(y)`.
+
+```sh
+grib2avenc --lossless --asinh --asinh-scale 1e-5 input.grib scaled.mp4
+grib2avenc --lossless --shifted-log --log-alpha 99 input.grib shifted.mp4
+```
+
+Choose `s` in source units. The native encoder takes an explicit scale; the
+evaluator tries `0.1*sigma`, `sigma` and `10*sigma` from the sampled **family**
+standard deviation, plus the original unit-scale asinh. It tests shifted-log
+alpha 9, 99 and 999. This is a small candidate set, not continuous scale fitting.
+Every scientific level still has to meet its own reconstruction-error targets.
+Quantization and lossy codecs introduce error even though these mappings have
+inverses. Compare physical reconstructions with `avenc-compare` before adoption.
+
+Unit-scale asinh uses binary revision **3** inside `AVENCv2|`; scaled asinh
+(`s != 1`) and shifted log use revision **4**, with stored scale, origin and span.
+Linear and ordinary log retain revision 2. New transform codes are 3=scaled asinh
+and 4=shifted log; existing codes remain unchanged. Older readers reject revision
+4 rather than silently applying the wrong inverse. All asinh and shifted-log
+encoding requires binary metadata; `--metadata-v1` is rejected for them.
+
+Current native, Python metadata and browser readers understand the new parameters;
+MP4 stream extraction preserves them. Python packed reads use the native CLI by
+default. The legacy `use_cli_subset_for_packed=False` path rejects both asinh and
+shifted log. The separate Python array encoder has not gained these native CLI
+options. These are local source changes, not yet a new PyPI/GitHub release.
+
+Current source builds expose stream grouping directly through `grib2avenc`:
+
+```bash
+grib2avenc --high --group-by var-level source/*.grib2 forecast.high.mp4
+```
+
+`--group-by var` is the existing default. `var-level` separates each parameter
+and level, retaining its forecast times within the stream. `auto` delegates the
+choice to the packer; `level` can combine different parameters at the same level
+and requires compatible numerical ranges. This grouping option is independent
+of automatic quantization-range selection. Unresolved parameter names use raw
+GRIB codes for variable grouping and template caching. These changes are local
+source additions and are not yet published in the PyPI 1.0.0 release.
 
 The original GRIB bitmap is authoritative for missing cells. Stable shared
 bitmaps are stored in metadata; the default `taper3` fill reduces discontinuities
@@ -261,3 +333,23 @@ AVENC is licensed under [Apache-2.0](LICENSE). FFmpeg, ecCodes, codecs and brows
 libraries retain their own licences. Hardware acceleration depends on the encoder,
 FFmpeg build and device; it is not enabled merely by choosing a profile name.
 Agent-oriented usage and limitations: [skills.md](skills.md).
+
+
+## Compression recipe optimization
+
+`avenc-eval` is maintained separately in **avenc_optimizer** and is not built or
+installed by AVENC, its wheels or native release bundles. It uses installed AVENC
+command-line tools to measure candidate recipes. See the optimizer repository's
+README and `docs/EVALUATION.md` for its independent CMake build and search workflow.
+
+AVENC continues to apply the resulting CSV directly:
+
+```sh
+grib2avenc --high --recipes evaluation/recipes.csv input.grib output.mp4
+```
+
+Matching rules override CLI settings; unmatched fields use CLI defaults. Absent
+rules are ignored. More-specific selector sets override subsets; ambiguous
+matches fail. `action=retain` stops encoding for that field: retain its source
+GRIB separately. Recipe measurements apply only to the data evaluated; compare
+the final output again when applying a recipe to other data.

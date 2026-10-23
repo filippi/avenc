@@ -1,4 +1,7 @@
+#include "avenc_transform.h"
+#include "avenc_pixel_layout.h"
 #include "avenc_version.h"
+#include "avenc_grib_time.h"
 #include <algorithm>
 #include <cerrno>
 #include <cctype>
@@ -69,6 +72,9 @@ struct StreamInfo {
     double min_value = 0.0;
     double max_value = 1.0;
     bool apply_log2 = false;
+    bool apply_asinh = false;
+    bool apply_shifted_log = false;
+    double transform_scale = 1.0, transform_origin = 0.0, transform_span = 1.0;
     double log_offset = 1.0;
     std::vector<uint8_t> shared_bitmap;
     std::string template_b64;
@@ -461,9 +467,9 @@ std::vector<std::string> split_csv(const std::string &line) {
     return out;
 }
 
-double decode_transform(double value, bool apply_log2, double log_offset) {
-    if (!apply_log2) return value;
-    return std::exp2(value) - log_offset;
+double decode_transform(double value, bool log, bool asinh, double offset,
+                        bool shifted=false, double scale=1, double origin=0, double span=1) {
+    return avenc_transform::inverse(value,log,asinh,offset,shifted,scale,origin,span);
 }
 
 void set_key_from_text(codes_handle *h, const char *key, const std::string &value) {
@@ -481,23 +487,7 @@ void set_key_from_text(codes_handle *h, const char *key, const std::string &valu
 }
 
 void set_validity_from_timestamp(codes_handle *h, const std::string &timestamp) {
-    if (!h) return;
-    // Expect YYYY-MM-DDTHH:MM:SSZ
-    if (timestamp.size() < 16) return;
-    if (timestamp[4] != '-' || timestamp[7] != '-' || timestamp[10] != 'T' || timestamp[13] != ':') return;
-    auto is_d = [](char c) { return c >= '0' && c <= '9'; };
-    const int idxs[] = {0, 1, 2, 3, 5, 6, 8, 9, 11, 12, 14, 15};
-    for (int idx : idxs) {
-        if (!is_d(timestamp[static_cast<size_t>(idx)])) return;
-    }
-    try {
-        const long vdate = std::stol(timestamp.substr(0, 4) + timestamp.substr(5, 2) + timestamp.substr(8, 2));
-        const long vtime = std::stol(timestamp.substr(11, 2) + timestamp.substr(14, 2));
-        (void)codes_set_long(h, "validityDate", vdate);
-        (void)codes_set_long(h, "validityTime", vtime);
-    } catch (...) {
-        return;
-    }
+    avenc_grib_time::restore(h, timestamp);
 }
 
 std::string tsv_unescape(const std::string &in) {
@@ -990,8 +980,8 @@ ReconPayload parse_recon_payload_v2_binary(const std::vector<uint8_t> &bytes) {
         throw std::runtime_error("Invalid AVENCv2 metadata magic");
     }
     const uint32_t fmt_ver = read_u32le(bytes.data() + 8);
-    if (fmt_ver != 2u) {
-        throw std::runtime_error("Unsupported AVENCv2 format version (expected 2)");
+    if ((fmt_ver != 2u && fmt_ver != 3u && fmt_ver != 4u)) {
+        throw std::runtime_error("Unsupported AVENCv2 format version (expected 2, 3 or 4)");
     }
     size_t off = 12;
     (void)read_u32le_at(bytes, off, "flags");
@@ -1012,8 +1002,19 @@ ReconPayload parse_recon_payload_v2_binary(const std::vector<uint8_t> &bytes) {
         s.storage_shift = read_i32le_at(bytes, off, "stream.storage_shift");
         s.min_value = read_f64le_at(bytes, off, "stream.min_value");
         s.max_value = read_f64le_at(bytes, off, "stream.max_value");
-        s.apply_log2 = (read_u32le_at(bytes, off, "stream.apply_log2") != 0u);
+        const uint32_t transform = read_u32le_at(bytes, off, "stream.transform");
+        if (transform > (fmt_ver == 4u ? 4u : fmt_ver == 3u ? 2u : 1u))
+            throw std::runtime_error("Unsupported stream transform");
+        s.apply_log2 = transform == 1u;
+        s.apply_asinh = transform == 2u || transform == 3u;
+        s.apply_shifted_log=transform==4u;
         s.log_offset = read_f64le_at(bytes, off, "stream.log_offset");
+        if(fmt_ver>=4u){
+            s.transform_scale=read_f64le_at(bytes,off,"stream.transform_scale");
+            s.transform_origin=read_f64le_at(bytes,off,"stream.transform_origin");
+            s.transform_span=read_f64le_at(bytes,off,"stream.transform_span");
+            avenc_transform::validate(s.transform_scale,s.transform_origin,s.transform_span);
+        }
         s.encoded_nx = static_cast<int>(read_u32le_at(bytes, off, "stream.encoded_nx"));
         s.encoded_ny = static_cast<int>(read_u32le_at(bytes, off, "stream.encoded_ny"));
         s.crop_nx = static_cast<int>(read_u32le_at(bytes, off, "stream.crop_nx"));
@@ -1130,9 +1131,12 @@ ReconPayload parse_recon_payload(const std::string &text) {
             s.min_value = std::stod(cols[4]);
             s.max_value = std::stod(cols[5]);
             if (cols.size() >= 7) s.storage_shift = std::stoi(cols[6]);
+            if(cols.size()>=18){s.transform_scale=std::stod(cols[15]);s.transform_origin=std::stod(cols[16]);s.transform_span=std::stod(cols[17]);avenc_transform::validate(s.transform_scale,s.transform_origin,s.transform_span);}
             if (cols.size() >= 8) {
                 const std::string mode = trim(cols[7]);
                 s.apply_log2 = (mode == "log2p1" || mode == "log2");
+                s.apply_asinh = (mode == "asinh");
+                s.apply_shifted_log=(mode=="shifted-log");
             }
             if (cols.size() >= 9) {
                 try {
@@ -1343,7 +1347,7 @@ void print_groups(const ReconPayload &recon, const std::vector<GroupInfo> &group
     std::cout << "grid\t" << recon.nx << "x" << recon.ny << "\n";
     std::unordered_map<int, const StreamInfo *> stream_by_idx;
     for (const auto &s : recon.streams) stream_by_idx[s.stream_index] = &s;
-    std::cout << "group\tstream\tframes\trecords\tshortName\ttypeOfLevel\tlevels\tsteps\tbits\tstorageShift\tmin\tmax\tlog2\tsharedBitmap\n";
+    std::cout << "group\tstream\tframes\trecords\tshortName\ttypeOfLevel\tlevels\tsteps\tbits\tstorageShift\tmin\tmax\tlog2\tsharedBitmap\ttransform\n";
     for (const auto &g : groups) {
         const StreamInfo *s = nullptr;
         auto it = stream_by_idx.find(g.stream_index);
@@ -1354,7 +1358,8 @@ void print_groups(const ReconPayload &recon, const std::vector<GroupInfo> &group
                   << g.storage_shift << "\t" << std::setprecision(10) << g.min_value << "\t"
                   << std::setprecision(10) << g.max_value << "\t"
                   << ((s && s->apply_log2) ? 1 : 0) << "\t"
-                  << ((s && !s->shared_bitmap.empty()) ? 1 : 0) << "\n";
+                  << ((s && !s->shared_bitmap.empty()) ? 1 : 0) << "\t"
+                  << ((s && s->apply_shifted_log)?"shifted-log":(s && s->apply_asinh) ? "asinh" : (s && s->apply_log2) ? "log" : "linear") << "\n";
     }
 }
 
@@ -1461,7 +1466,8 @@ void print_metadata_head(const DecodedComment &decoded, const ReconPayload &reco
         std::cout << decoded.metadata_json << "\n";
         return;
     }
-    std::cout << "# AVENCv2 (binary fmt=2)\n";
+    std::cout << "# AVENCv2 (binary fmt=" << (std::any_of(recon.streams.begin(), recon.streams.end(),
+        [](const StreamInfo &s) { return s.apply_shifted_log||(s.apply_asinh&&s.transform_scale!=1); }) ? 4 : std::any_of(recon.streams.begin(),recon.streams.end(),[](const StreamInfo& s){return s.apply_asinh;})?3:2) << ")\n";
     std::cout << serialize_recon_payload(recon);
 }
 
@@ -1589,7 +1595,7 @@ std::string serialize_recon_payload(const ReconPayload &recon) {
         }
         oss << "STREAM\t" << s.stream_index << "\t" << s.frame_count << "\t" << s.bits << "\t"
             << s.min_value << "\t" << s.max_value << "\t" << s.storage_shift
-            << "\t" << (s.apply_log2 ? "log2p1" : "linear")
+            << "\t" << (s.apply_shifted_log ? "shifted-log" : s.apply_asinh ? "asinh" : s.apply_log2 ? "log2p1" : "linear")
             << "\t" << s.log_offset
             << "\t" << bitmap_payload
             << "\t" << (s.template_b64.empty() ? "-" : s.template_b64)
@@ -1597,6 +1603,7 @@ std::string serialize_recon_payload(const ReconPayload &recon) {
             << "\t" << s.encoded_ny
             << "\t" << s.crop_nx
             << "\t" << s.crop_ny
+            << "\t" << s.transform_scale << "\t" << s.transform_origin << "\t" << s.transform_span
             << "\n";
     }
     for (const auto &r : recon.records) {
@@ -1637,7 +1644,10 @@ std::string build_avenc_comment_v2_binary(const ReconPayload &recon) {
     payload.reserve(64u + recon.streams.size() * 256u + recon.records.size() * 320u);
     const char magic[8] = {'A', 'V', '2', 'M', 'E', 'T', 'A', '\0'};
     payload.insert(payload.end(), magic, magic + 8);
-    append_u32le(payload, 2u); // AVENCv2 binary format version
+    const bool has_asinh = std::any_of(recon.streams.begin(), recon.streams.end(),
+        [](const StreamInfo &s) { return s.apply_asinh; });
+    const bool extended_transform=std::any_of(recon.streams.begin(),recon.streams.end(),[](const StreamInfo& s){return s.apply_shifted_log||(s.apply_asinh&&s.transform_scale!=1);});
+    append_u32le(payload, extended_transform?4u:has_asinh ? 3u : 2u); // preserve transform on MP4 extraction
     append_u32le(payload, 0u); // flags
     append_u32le(payload, static_cast<uint32_t>(recon.nx));
     append_u32le(payload, static_cast<uint32_t>(recon.ny));
@@ -1657,8 +1667,9 @@ std::string build_avenc_comment_v2_binary(const ReconPayload &recon) {
         append_i32le(payload, s.storage_shift);
         append_f64le(payload, s.min_value);
         append_f64le(payload, s.max_value);
-        append_u32le(payload, s.apply_log2 ? 1u : 0u);
+        append_u32le(payload, avenc_transform::mode(s.apply_log2,s.apply_asinh,s.apply_shifted_log,s.transform_scale));
         append_f64le(payload, s.log_offset);
+        if(extended_transform){append_f64le(payload,s.transform_scale);append_f64le(payload,s.transform_origin);append_f64le(payload,s.transform_span);}
         append_u32le(payload, static_cast<uint32_t>(s.encoded_nx));
         append_u32le(payload, static_cast<uint32_t>(s.encoded_ny));
         append_u32le(payload, static_cast<uint32_t>(s.crop_nx));
@@ -1779,7 +1790,7 @@ std::vector<uint16_t> decode_stream_quantized_range(const std::string &video_pat
         << " -vf \"select='between(n\\," << frame_start << "\\," << frame_end << ")'\""
         << " -frames:v " << frame_count
         << " -f rawvideo -pix_fmt "
-        << ((stream.bits <= 8) ? "gray" : "gray16le")
+        << avenc_raw_gray_format(stream.bits, stream.storage_shift)
         << " -";
 
     FILE *pipe = popen(cmd.str().c_str(), "r");
@@ -2057,7 +2068,7 @@ void write_grib_from_recon(const Options &opts, const ReconPayload &recon) {
                 if (norm < 0.0) norm = 0.0;
                 if (norm > 1.0) norm = 1.0;
                 double decoded = norm * frame_span + frame_min;
-                values[i] = decode_transform(decoded, s.apply_log2, s.log_offset);
+                values[i] = decode_transform(decoded, s.apply_log2, s.apply_asinh, s.log_offset, s.apply_shifted_log, s.transform_scale, s.transform_origin, s.transform_span);
             }
 
             if (has_missing) (void)codes_set_long(h, "bitmapPresent", 1);
@@ -2218,7 +2229,7 @@ void write_zarr_from_recon(const Options &opts, const ReconPayload &recon) {
                     : static_cast<double>(qv) / qmax_d;
                 norm = std::max(0.0, std::min(1.0, norm));
                 const double raw = fmin + norm * span;
-                decoded[i] = static_cast<float>(decode_transform(raw, stream.apply_log2, stream.log_offset));
+                decoded[i] = static_cast<float>(decode_transform(raw, stream.apply_log2, stream.apply_asinh, stream.log_offset, stream.apply_shifted_log, stream.transform_scale, stream.transform_origin, stream.transform_span));
             }
 
             const std::string ck = std::to_string(fi) + ".0.0";
@@ -2365,7 +2376,7 @@ void write_subset_zarr(const Options &opts, const ReconPayload &recon, int strea
                    << "\"width\":" << out_w << ",\"height\":" << out_h << ","
                    << "\"frame_start\":" << fs0 << ",\"frame_count\":" << out_t << ","
                    << "\"bits\":" << stream.bits << ","
-                   << "\"storage_shift\":" << stream.storage_shift
+                   << "\"transform_scale\":" << stream.transform_scale << ",\"transform_origin\":" << stream.transform_origin << ",\"transform_span\":" << stream.transform_span << ",\"apply_shifted_log\":" << (stream.apply_shifted_log?"true":"false") << ",\"storage_shift\":" << stream.storage_shift
                    << "}";
         write_text_file((root / ".zattrs").string(), root_attrs.str());
 

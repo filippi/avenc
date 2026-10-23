@@ -1052,7 +1052,11 @@ class AvencExtractor {
     const qvalid = hasBitmap ? Math.max(1, qmax - 1) : Math.max(1, qmax);
     const norm = clamp(q / qvalid, 0, 1);
     let value = Number(bounds.min) + norm * (Number(bounds.max) - Number(bounds.min));
-    if (opts?.apply_log2) {
+    if(opts?.apply_shifted_log){
+      const alpha=Number(opts.transform_scale??1);
+      value=Number(opts.transform_origin??0)+Number(opts.transform_span??1)*Math.expm1(value*Math.log1p(alpha))/alpha;
+    } else if (opts?.apply_asinh) value = Number(opts.transform_scale??1)*Math.sinh(value);
+    else if (opts?.apply_log2) {
       const logOffset = safeNum(opts.log_offset, 1);
       value = Math.pow(2, value) - logOffset;
     }

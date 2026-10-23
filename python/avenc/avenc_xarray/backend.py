@@ -44,6 +44,8 @@ class AvencBackendArray(XRBackendArray):
         self._video_path = str(video_path) if is_http_url(video_path) else Path(video_path)
         self._shape = tuple(int(s) for s in shape)
         self._opts = dict(options or {})
+        if self._opts.get("apply_asinh") or self._opts.get("apply_shifted_log"):
+            raise ValueError("Packed asinh/shifted-log streams require use_cli_subset_for_packed=True")
         self._frame_offset = int(frame_offset)
         self._stream_index = int(self._opts.get("stream_index", 0))
         self._bits = int(self._opts.get("bits", 8))

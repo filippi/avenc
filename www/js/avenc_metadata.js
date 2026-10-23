@@ -296,7 +296,7 @@ function parseV2BinarySummary(payloadB64, fileSize) {
     if (packed[i] !== expect[i]) throw new Error("Invalid AVENCv2 metadata magic");
   }
   const fmtVersion = readU32LE(packed, 8);
-  if (fmtVersion !== 2) throw new Error(`Unsupported AVENCv2 fmt version: ${fmtVersion}`);
+  if ((fmtVersion !== 2 && fmtVersion !== 3 && fmtVersion !== 4)) throw new Error(`Unsupported AVENCv2 fmt version: ${fmtVersion}`);
 
   let off = 12;
   const _flags = readU32LE(packed, off); off += 4;
@@ -350,8 +350,11 @@ function parseV2BinarySummary(payloadB64, fileSize) {
       storage_shift: readI32(),
       min_value: readF64(),
       max_value: readF64(),
-      apply_log2: readU32() !== 0,
+      transform_code: readU32(),
       log_offset: readF64(),
+      transform_scale: fmtVersion>=4?readF64():1,
+      transform_origin: fmtVersion>=4?readF64():0,
+      transform_span: fmtVersion>=4?readF64():1,
       encoded_width: readU32(),
       encoded_height: readU32(),
       crop_width: readU32(),
@@ -364,6 +367,11 @@ function parseV2BinarySummary(payloadB64, fileSize) {
       sample_time: "",
       sample_step: ""
     };
+    if (s.transform_code > (fmtVersion === 4 ? 4 : fmtVersion === 3 ? 2 : 1)) throw new Error("Unsupported stream transform");
+    s.apply_log2 = s.transform_code === 1;
+    s.apply_asinh = s.transform_code === 2 || s.transform_code === 3;
+    s.apply_shifted_log=s.transform_code===4;
+    if(!Number.isFinite(s.transform_scale)||s.transform_scale<=0||!Number.isFinite(s.transform_origin)||!Number.isFinite(s.transform_span)||s.transform_span<=0)throw new Error("Invalid transform parameters");
     skipStr(); // bitmap_payload
     skipStr(); // template_b64
     streams.push(s);
@@ -416,7 +424,7 @@ function parseV2BinarySummary(payloadB64, fileSize) {
   return {
     ok: true,
     schema: "avenc.pack.v2.binary",
-    metadata_version: "AVENCv2(fmt=2)",
+    metadata_version: `AVENCv2(fmt=${fmtVersion})`,
     grid: { nx, ny },
     streams: streamCount,
     records: recordCount,

@@ -1,3 +1,4 @@
+#include "avenc_transform.h"
 // Packed-GRIB AVENC v1/v2 metadata reader, adapted from avenc2grib.cpp.
 // Deliberately isolated from metric calculation; scientific values are decoded
 // through the existing avenc_subset_decode library, never repacked to GRIB.
@@ -21,6 +22,9 @@ struct StreamInfo {
     double min_value = 0.0;
     double max_value = 1.0;
     bool apply_log2 = false;
+    bool apply_asinh = false;
+    bool apply_shifted_log = false;
+    double transform_scale = 1.0, transform_origin = 0.0, transform_span = 1.0;
     double log_offset = 1.0;
     std::vector<uint8_t> shared_bitmap;
     std::string template_b64;
@@ -307,8 +311,8 @@ ReconPayload parse_recon_payload_v2_binary(const std::vector<uint8_t> &bytes) {
         throw std::runtime_error("Invalid AVENCv2 metadata magic");
     }
     const uint32_t fmt_ver = read_u32le(bytes.data() + 8);
-    if (fmt_ver != 2u) {
-        throw std::runtime_error("Unsupported AVENCv2 format version (expected 2)");
+    if ((fmt_ver != 2u && fmt_ver != 3u && fmt_ver != 4u)) {
+        throw std::runtime_error("Unsupported AVENCv2 format version (expected 2, 3 or 4)");
     }
     size_t off = 12;
     (void)read_u32le_at(bytes, off, "flags");
@@ -329,8 +333,19 @@ ReconPayload parse_recon_payload_v2_binary(const std::vector<uint8_t> &bytes) {
         s.storage_shift = read_i32le_at(bytes, off, "stream.storage_shift");
         s.min_value = read_f64le_at(bytes, off, "stream.min_value");
         s.max_value = read_f64le_at(bytes, off, "stream.max_value");
-        s.apply_log2 = (read_u32le_at(bytes, off, "stream.apply_log2") != 0u);
+        const uint32_t transform = read_u32le_at(bytes, off, "stream.transform");
+        if (transform > (fmt_ver == 4u ? 4u : fmt_ver == 3u ? 2u : 1u))
+            throw std::runtime_error("Unsupported stream transform");
+        s.apply_log2 = transform == 1u;
+        s.apply_asinh = transform == 2u || transform == 3u;
+        s.apply_shifted_log=transform==4u;
         s.log_offset = read_f64le_at(bytes, off, "stream.log_offset");
+        if(fmt_ver>=4u){
+            s.transform_scale=read_f64le_at(bytes,off,"stream.transform_scale");
+            s.transform_origin=read_f64le_at(bytes,off,"stream.transform_origin");
+            s.transform_span=read_f64le_at(bytes,off,"stream.transform_span");
+            avenc_transform::validate(s.transform_scale,s.transform_origin,s.transform_span);
+        }
         s.encoded_nx = static_cast<int>(read_u32le_at(bytes, off, "stream.encoded_nx"));
         s.encoded_ny = static_cast<int>(read_u32le_at(bytes, off, "stream.encoded_ny"));
         s.crop_nx = static_cast<int>(read_u32le_at(bytes, off, "stream.crop_nx"));
@@ -447,9 +462,12 @@ ReconPayload parse_recon_payload(const std::string &text) {
             s.min_value = std::stod(cols[4]);
             s.max_value = std::stod(cols[5]);
             if (cols.size() >= 7) s.storage_shift = std::stoi(cols[6]);
+            if(cols.size()>=18){s.transform_scale=std::stod(cols[15]);s.transform_origin=std::stod(cols[16]);s.transform_span=std::stod(cols[17]);avenc_transform::validate(s.transform_scale,s.transform_origin,s.transform_span);}
             if (cols.size() >= 8) {
                 const std::string mode = trim(cols[7]);
                 s.apply_log2 = (mode == "log2p1" || mode == "log2");
+                s.apply_asinh = (mode == "asinh");
+                s.apply_shifted_log=(mode=="shifted-log");
             }
             if (cols.size() >= 9) {
                 try {

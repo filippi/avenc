@@ -134,6 +134,13 @@ endif()
 message(STATUS "ECCodes include: ${ECCODES_INCLUDE_DIR}")
 message(STATUS "ECCodes library: ${ECCODES_LIB}")
 
+# Native source installs use an external ecCodes installation. Wheels bundle
+# their dependencies beside the tools and retain only loader-relative paths.
+if(NOT AVENC_BUILD_PYTHON)
+  get_filename_component(_AVENC_ECCODES_LIBDIR "${ECCODES_LIB}" DIRECTORY)
+  list(APPEND CMAKE_INSTALL_RPATH "${_AVENC_ECCODES_LIBDIR}")
+endif()
+
 # ----------------------------------
 # Sources
 # ----------------------------------
@@ -234,6 +241,9 @@ else()
   target_include_directories(avenc-compare PRIVATE ${ZLIB_INCLUDE_DIRS})
 endif()
 install(TARGETS avenc-compare RUNTIME DESTINATION ${AVENC_BINDIR})
+
+# Sample-based distribution/quantization/codec evaluator.
+
 
 install(FILES src/avenc_subset_decode.h DESTINATION include/avenc)
 include(CTest)

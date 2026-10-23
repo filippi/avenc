@@ -104,6 +104,7 @@ struct Accumulator {
             {"reference_std",sx},{"decoded_std",sy},{"reference_rms",rms},
             {"std_ratio",ratio(sy,sx)},{"variance_ratio",ratio(sy*sy,sx*sx)},
             {"correlation",m2_x>0&&m2_y>0?std::clamp(static_cast<double>(cov/std::sqrt(m2_x*m2_y)),-1.0,1.0):nan},
+            {"rmse_over_std",ratio(rmse,sx)},{"max_over_std",ratio(max_abs,sx)},
             {"relative_rmse",ratio(rmse,rms)},{"nrmse_range",ratio(rmse,range)},
             {"nrmse_q01_q99",ratio(rmse,quantile(x,.99)-quantile(x,.01))},
             {"snr_rms_db",db(rms)},{"snr_std_db",db(sx)},{"psnr_db",db(range)}

@@ -117,7 +117,7 @@ function decodeAvencCommentPayload(prefix, payloadB64) {
       if (packed[i] !== expect[i]) throw new Error("Invalid AVENCv2 metadata magic");
     }
     const fmtVersion = readU32LE(packed, 8);
-    if (fmtVersion !== 2) {
+    if ((fmtVersion !== 2 && fmtVersion !== 3 && fmtVersion !== 4)) {
       throw new Error(`Unsupported AVENCv2 format version: ${fmtVersion}`);
     }
 
@@ -169,8 +169,15 @@ function decodeAvencCommentPayload(prefix, payloadB64) {
       const storageShift = readI32("storage_shift");
       const minValue = readF64("min_value");
       const maxValue = readF64("max_value");
-      const applyLog2 = readU32("apply_log2") !== 0;
+      const transformCode = readU32("transform");
+      if (transformCode > (fmtVersion === 4 ? 4 : fmtVersion === 3 ? 2 : 1)) throw new Error("Unsupported stream transform");
+      const applyLog2 = transformCode === 1;
+      const applyAsinh = transformCode === 2 || transformCode === 3;
       const logOffset = readF64("log_offset");
+      const transformScale=fmtVersion>=4?readF64("transform_scale"):1;
+      const transformOrigin=fmtVersion>=4?readF64("transform_origin"):0;
+      const transformSpan=fmtVersion>=4?readF64("transform_span"):1;
+      if(!Number.isFinite(transformScale)||transformScale<=0||!Number.isFinite(transformOrigin)||!Number.isFinite(transformSpan)||transformSpan<=0)throw new Error("Invalid transform parameters");
       const encodedWidth = readU32("encoded_width");
       const encodedHeight = readU32("encoded_height");
       const cropWidth = readU32("crop_width");
@@ -185,7 +192,12 @@ function decodeAvencCommentPayload(prefix, payloadB64) {
         min_value: minValue,
         max_value: maxValue,
         apply_log2: applyLog2,
+        apply_asinh: applyAsinh,
         log_offset: logOffset,
+        apply_shifted_log: transformCode===4,
+        transform_scale: transformScale,
+        transform_origin: transformOrigin,
+        transform_span: transformSpan,
         encoded_width: encodedWidth,
         encoded_height: encodedHeight,
         crop_width: cropWidth,
@@ -276,7 +288,12 @@ function decodeAvencCommentPayload(prefix, payloadB64) {
           crop_height: Number(s.crop_height || ny),
           quantization: "frameMinMax",
           apply_log2: Boolean(s.apply_log2),
-          log_offset: Number(s.log_offset || 1)
+          apply_asinh: Boolean(s.apply_asinh),
+          log_offset: Number(s.log_offset || 1),
+          apply_shifted_log: Boolean(s.apply_shifted_log),
+          transform_scale: Number(s.transform_scale ?? 1),
+          transform_origin: Number(s.transform_origin ?? 0),
+          transform_span: Number(s.transform_span ?? 1)
         },
         records: recs.map((r) => ({
           file_index: Number(r.file_index || -1),
@@ -401,6 +418,7 @@ function parseReconTsv(reconText) {
         max_value: safeNum(cols[5], 1),
         storage_shift: Number(cols[6] || 0),
         apply_log2: String(cols[7] || "").toLowerCase().includes("log2"),
+        apply_asinh: String(cols[7] || "").toLowerCase() === "asinh",
         log_offset: safeNum(cols[8], 1),
         encoded_width: Number(cols[11] || 0),
         encoded_height: Number(cols[12] || 0),
@@ -851,7 +869,11 @@ export class AvencModel extends EventTarget {
     const luma01 = Math.max(0, Math.min(1, qYRaw / sampleMax));
     const norm = luma01;
     let value = bounds.min + norm * (bounds.max - bounds.min);
-    if (log2Mode) value = Math.pow(2, value) - logOffset;
+    if(opts.apply_shifted_log){
+      const alpha=Number(opts.transform_scale??1);
+      value=Number(opts.transform_origin??0)+Number(opts.transform_span??1)*Math.expm1(value*Math.log1p(alpha))/alpha;
+    } else if (opts.apply_asinh) value = Number(opts.transform_scale??1)*Math.sinh(value);
+    else if (log2Mode) value = Math.pow(2, value) - logOffset;
     const ll = this.getLatLonAt(i, j);
     const gi = this.getCurrentGroupInfo();
     const unit = gi?.unit || "";

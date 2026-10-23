@@ -1,4 +1,5 @@
 #include "avenc_version.h"
+#include "avenc_grib_time.h"
 // Scientific identity-matched comparison. Legacy ComputeError remains available.
 #include <eccodes.h>
 #include "avenc_subset_decode.h"
@@ -135,12 +136,20 @@ Field describe(codes_handle* h,const Options& o) {
     Field f;f.npoints=point_count(h);f.short_name=text(h,"shortName");f.units=text(h,"units");
     if(text(h,"md5GridSection").empty()) throw std::runtime_error("Cannot establish grid identity (md5GridSection absent)");
     f.group=keys(h,{"paramId","shortName","units","typeOfLevel","level","topLevel","bottomLevel","stepType","md5GridSection"});
+    // Names/paramId can be unresolved with older ecCodes definitions. Raw
+    // GRIB parameter codes remain authoritative and must not collapse together.
+    if(f.short_name=="unknown" || text(h,"paramId").empty() || text(h,"paramId")=="0")
+        f.group+=keys(h,{"edition","discipline","parameterCategory","parameterNumber",
+                         "table2Version","indicatorOfParameter","centre","subCentre",
+                         "tablesVersion","localTablesVersion"});
     if(o.group_member) f.group+=keys(h,{"number","perturbationNumber"});
-    f.identity=f.group+keys(h,{"dataDate","dataTime","startStep","endStep","stepUnits",
+    // Statistical fields can share an interval while having different valid times
+    // (for example, an initialization placeholder and the first forecast field).
+    f.identity=f.group+keys(h,{"dataDate","dataTime","validityDate","validityTime","startStep","endStep","stepUnits",
                               "number","perturbationNumber","typeOfEnsembleForecast","percentileValue",
                               "probabilityType","scaledValueOfLowerLimit","scaledValueOfUpperLimit"});
     f.identity+="npoints="+std::to_string(f.npoints);
-    for(const auto* key:{"paramId","typeOfLevel","level","topLevel","bottomLevel","stepType","md5GridSection",
+    for(const auto* key:{"edition","discipline","parameterCategory","parameterNumber","table2Version","indicatorOfParameter","centre","subCentre","tablesVersion","localTablesVersion","paramId","typeOfLevel","level","topLevel","bottomLevel","stepType","md5GridSection",
                          "dataDate","dataTime","validityDate","validityTime","startStep","endStep","stepUnits","number","perturbationNumber"})
         f.coordinates[key]=text(h,key);
     return f;
@@ -248,6 +257,7 @@ std::vector<Field> index_mp4(const std::string& path,const Options& o,std::vecto
         set_text(h.get(),"dataDate",r.data_date);set_text(h.get(),"dataTime",r.data_time);
         set_text(h.get(),"stepRange",r.step_range);set_text(h.get(),"number",r.ensemble_number);
         set_text(h.get(),"perturbationNumber",r.perturbation_number);
+        avenc_grib_time::restore(h.get(),r.timestamp);
         Field f=describe(h.get(),o);
         if(f.short_name!=r.short_name || text(h.get(),"typeOfLevel")!=r.type_of_level || text(h.get(),"level")!=r.level)
             throw std::runtime_error("Embedded template and record variable/level disagree");
@@ -336,8 +346,8 @@ void write_csv(std::ostream& out,const std::vector<Result>& results) {
     out<<"identity,group,short_name,units,reference_path,candidate_path,reference_message,candidate_message,stream,frame,"
          "points_available,fields_available,fields_selected,n,points_examined,missing_reference,missing_decoded,missing_mismatch,"
          "both_missing,quantile_sample_size,quantiles_exact,max_error_point";
-    const std::vector<std::string> coordinate_keys={"paramId","typeOfLevel","level","topLevel","bottomLevel","stepType",
-        "md5GridSection","dataDate","dataTime","startStep","endStep","stepUnits","number","perturbationNumber"};
+    const std::vector<std::string> coordinate_keys={"edition","discipline","parameterCategory","parameterNumber","table2Version","indicatorOfParameter","centre","subCentre","tablesVersion","localTablesVersion","paramId","typeOfLevel","level","topLevel","bottomLevel","stepType",
+        "md5GridSection","dataDate","dataTime","validityDate","validityTime","startStep","endStep","stepUnits","number","perturbationNumber"};
     for(const auto& key:coordinate_keys) out<<','<<key;
     for(const auto& m:results[0].metrics) out<<','<<m.first;
     out<<'\n';
@@ -467,7 +477,10 @@ int main(int argc,char** argv) {
                 summary.fields_available=grouped.at(ref.group).size();
                 summary.fields_selected=o.full?summary.fields_available:std::min(o.frames,summary.fields_available);
                 for(const auto& c:ref.coordinates)
-                    if(c.first=="paramId" || c.first=="typeOfLevel" || c.first=="level" || c.first=="topLevel" ||
+                    if(c.first=="edition" || c.first=="discipline" || c.first=="parameterCategory" ||
+                       c.first=="parameterNumber" || c.first=="table2Version" || c.first=="indicatorOfParameter" ||
+                       c.first=="centre" || c.first=="subCentre" || c.first=="tablesVersion" ||
+                       c.first=="localTablesVersion" || c.first=="paramId" || c.first=="typeOfLevel" || c.first=="level" || c.first=="topLevel" ||
                        c.first=="bottomLevel" || c.first=="stepType" || c.first=="md5GridSection" ||
                        (o.group_member && (c.first=="number" || c.first=="perturbationNumber")))
                         summary.coordinates.insert(c);

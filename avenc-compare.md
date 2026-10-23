@@ -263,3 +263,36 @@ missing masks, deterministic sampling/reservoirs, SHA-256 vectors and file
 hashes, reordered GRIB, known +1 perturbations, directory/member grouping,
 duplicate/missing/wrong-grid rejection, protected inputs, AVENC v1/v2 direct
 decoding and independent NumPy RMSE verification. No large research datasets are included in the test suite.
+
+
+### Unresolved parameter names
+
+When ecCodes resolves a parameter to `unknown` or paramId 0, matching and grouping
+also use raw GRIB parameter codes and their table/centre context. Distinct
+unknown codes must not be treated as duplicates or pooled into one scientific
+variable. True duplicate identities still fail by default.
+
+Archives produced by an older encoder that reused templates across distinct
+unknown parameters may have lost the corresponding header identities. A matching
+option cannot repair that archive; do not bypass the failure with duplicate-first
+or intersection-only comparison. If exact original file/message indices and the
+original GRIB sources are available, a separately validated source-guided template
+repair can restore identities while preserving compressed video and numerical
+scaling. This does not improve existing compression errors. Otherwise re-encode
+the affected data with the corrected encoder and current ecCodes definitions.
+
+### Shared evaluator metrics
+
+`rmse_over_std` and `max_over_std` are dimensionless fractions of the reference
+population standard deviation. They are emitted in JSON metrics and CSV and are
+the values used by the separately installed optimizer `avenc-eval --rmse-std X --max-std Y`. A zero or undefined
+reference standard deviation leaves these metrics undefined; the evaluator
+requires exact reconstruction for finite constant fields. These are not ensemble
+spread metrics. Each evaluation trial retains an ordinary full comparator report;
+search stages and recipes are recorded separately by `avenc-eval`.
+
+`avenc-eval` defaults to comparing against a reconstructed temporary GRIB, so its
+scores include GRIB repacking. `avenc-eval --rawmp4` selects direct decoded-MP4
+comparison. The evaluator records that choice explicitly and deletes temporary
+files by default; `--keep-temp` retains them. The standalone `avenc-compare`
+command itself has not changed its input-selection behavior.

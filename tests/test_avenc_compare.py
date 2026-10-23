@@ -114,6 +114,136 @@ class CompareTests(unittest.TestCase):
             self.assertTrue(g["quantiles_exact"])
             self.assertIsNone(g["metrics"]["snr_std_db"])
 
+    def test_statistical_interval_with_distinct_valid_times(self):
+        # Same 0--3 h interval, but distinct explicit end-of-interval dates/times.
+        records = []
+        for valid_date, valid_hour, value in ((20261019, 0, 1.),
+                                               (20261019, 3, 2.),
+                                               (20261020, 0, 3.)):
+            h = ec.codes_grib_new_from_samples("regular_ll_sfc_grib2")
+            try:
+                for key, setting in {
+                    "Ni": 2, "Nj": 2,
+                    "dataDate": 20261019, "dataTime": 0,
+                    "productDefinitionTemplateNumber": 8,
+                    "stepType": "min", "startStep": 0, "endStep": 3,
+                    "yearOfEndOfOverallTimeInterval": valid_date // 10000,
+                    "monthOfEndOfOverallTimeInterval": valid_date // 100 % 100,
+                    "dayOfEndOfOverallTimeInterval": valid_date % 100,
+                    "hourOfEndOfOverallTimeInterval": valid_hour,
+                }.items():
+                    ec.codes_set(h, key, setting)
+                self.assertEqual(ec.codes_get(h, "validityDate"), valid_date)
+                self.assertEqual(ec.codes_get(h, "validityTime"), valid_hour * 100)
+                self.assertEqual(ec.codes_get(h, "startStep"), 0)
+                self.assertEqual(ec.codes_get(h, "endStep"), 3)
+                ec.codes_set_values(h, np.full(4, value))
+                records.append(ec.codes_get_message(h))
+            finally:
+                ec.codes_release(h)
+        reference = self.work / "statistical.grib"
+        candidate = self.work / "statistical_reversed.grib"
+        reference.write_bytes(b"".join(records))
+        candidate.write_bytes(b"".join(reversed(records)))
+        r = self.compare(candidate, "--full", reference=reference)
+        self.assertEqual(r["matching"]["matched"], 3)
+        self.assertTrue(all(f["metrics"]["rmse"] == 0 for f in r["messages"]))
+        self.assertEqual(len({f["identity"] for f in r["messages"]}), 3)
+        for version in (1, 2):
+            mp4 = self.work / f"statistical_v{version}.mp4"
+            decoded = self.work / f"statistical_v{version}.grib"
+            subprocess.run([
+                str(BIN_DIR / "avpack"), "--codec", "avc", "--quality", "high",
+                "--bits", "8", "--threads", "1", "--metadata-version", str(version),
+                "--out", str(mp4), str(reference),
+            ], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+            direct = self.compare(mp4, "--full", reference=reference)
+            subprocess.run([str(BIN_DIR / "avenc2grib"), str(mp4), str(decoded)],
+                           check=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+            unpacked = self.compare(decoded, "--full", reference=reference)
+            expected = {f["identity"] for f in r["messages"]}
+            self.assertEqual({f["identity"] for f in direct["messages"]}, expected)
+            self.assertEqual({f["identity"] for f in unpacked["messages"]}, expected)
+        # True duplicates must still fail: do not silently select a first record.
+        candidate.write_bytes(b"".join(records + records[:1]))
+        self.compare(candidate, "--full", reference=reference, ok=False)
+
+    def test_distinct_unknown_parameter_codes(self):
+        records=[]
+        for parameter in (250,251):
+            for step in (3,6):
+                h=ec.codes_grib_new_from_samples("regular_ll_sfc_grib2")
+                try:
+                    for key,value in {"Ni":32,"Nj":24,"dataDate":20261019,"dataTime":0,
+                                      "discipline":0,"parameterCategory":191,
+                                      "parameterNumber":parameter,"step":step,
+                                      "bitsPerValue":12}.items():
+                        ec.codes_set(h,key,value)
+                    self.assertEqual(ec.codes_get(h,"shortName"),"unknown")
+                    ec.codes_set_values(h,np.arange(768,dtype=float)/100+parameter+step)
+                    records.append(ec.codes_get_message(h))
+                finally:
+                    ec.codes_release(h)
+        reference=self.work/"unknown_codes.grib"
+        candidate=self.work/"unknown_codes_reversed.grib"
+        reference.write_bytes(b"".join(records))
+        candidate.write_bytes(b"".join(reversed(records)))
+        r=self.compare(candidate,"--full",reference=reference)
+        self.assertEqual(r["matching"]["matched"],4)
+        self.assertEqual(len(r["groups"]),2)
+        self.assertEqual({g["coordinates"]["parameterNumber"] for g in r["groups"]},{"250","251"})
+        self.assertTrue(all(g["metrics"]["rmse"]==0 for g in r["groups"]))
+        # Default variable grouping separates unknown codes; explicitly grouped
+        # level streams must still preserve their distinct per-record templates.
+        for mode in ("var-level","level"):
+            mp4=self.work/f"unknown_{mode}.mp4"
+            decoded=self.work/f"unknown_{mode}.grib"
+            subprocess.run([str(BIN_DIR/"avpack"),"--codec","avc","--quality","high",
+                            "--bits","8","--threads","1","--group-by",mode,
+                            "--out",str(mp4),str(reference)],check=True,
+                           stdout=subprocess.DEVNULL,stderr=subprocess.PIPE)
+            direct=self.compare(mp4,"--full",reference=reference)
+            subprocess.run([str(BIN_DIR/"avenc2grib"),str(mp4),str(decoded)],check=True,
+                           stdout=subprocess.DEVNULL,stderr=subprocess.PIPE)
+            unpacked=self.compare(decoded,"--full",reference=reference)
+            self.assertEqual(direct["matching"]["matched"],4)
+            self.assertEqual(unpacked["matching"]["matched"],4)
+            self.assertEqual(len(direct["groups"]),2)
+            streams={f["stream"] for f in direct["messages"]}
+            self.assertEqual(len(streams),2 if mode=="var-level" else 1)
+
+    def test_grib2avenc_group_by(self):
+        # One parameter, two levels, two times: only level grouping should split it.
+        records=[]
+        for level in (500,850):
+            for step in (3,6):
+                h=ec.codes_new_from_message(self.records[0])
+                try:
+                    ec.codes_set(h,"typeOfLevel","isobaricInhPa")
+                    ec.codes_set(h,"level",level)
+                    ec.codes_set(h,"step",step)
+                    records.append(ec.codes_get_message(h))
+                finally:
+                    ec.codes_release(h)
+        reference=self.work/"wrapper_levels.grib"
+        reference.write_bytes(b"".join(records))
+        for mode,streams in ((None,1),("var",1),("var-level",2),("level",2),("auto",None)):
+            output=self.work/f"wrapper_{mode or 'default'}.mp4"
+            options=[] if mode is None else ["--group-by",mode]
+            p=subprocess.run([str(BIN_DIR/"grib2avenc"),"--fast","--threads","1",*options,
+                              str(reference),str(output)],capture_output=True,text=True)
+            self.assertEqual(p.returncode,0,p.stderr)
+            r=self.compare(output,"--full",reference=reference)
+            self.assertEqual(r["matching"]["matched"],4)
+            actual={field["stream"] for field in r["messages"]}
+            if streams is not None:self.assertEqual(len(actual),streams)
+        rejected=self.work/"invalid_grouping.mp4"
+        for options in (["--group-by"],["--group-by","invalid",str(reference),str(rejected)]):
+            p=subprocess.run([str(BIN_DIR/"grib2avenc"),*options],capture_output=True,text=True)
+            self.assertNotEqual(p.returncode,0)
+            self.assertIn("--group-by",p.stderr)
+            self.assertFalse(rejected.exists())
+
     def test_known_shift(self):
         r = self.compare(self.changed, "--full", "--quantile-cap", "0")
         for g in r["groups"]:

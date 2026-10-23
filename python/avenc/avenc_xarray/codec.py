@@ -233,7 +233,7 @@ def _decode_metadata_v2_binary(data: bytes) -> Dict[str, Any]:
         raise ValueError("Invalid AVENCv2 metadata magic")
     reader.offset = 8
     version = reader.u32("format_version")
-    if version != _V2_FORMAT_VERSION:
+    if version not in (_V2_FORMAT_VERSION, 3, 4):
         raise ValueError(f"Unsupported AVENCv2 format version: {version}")
     flags = reader.u32("flags")
     width = reader.u32("nx")
@@ -259,8 +259,18 @@ def _decode_metadata_v2_binary(data: bytes) -> Dict[str, Any]:
         storage_shift = reader.i32("stream.storage_shift")
         min_value = reader.f64("stream.min_value")
         max_value = reader.f64("stream.max_value")
-        apply_log2 = bool(reader.u32("stream.apply_log2"))
+        transform = reader.u32("stream.transform")
+        if transform > (4 if version == 4 else 2 if version == 3 else 1):
+            raise ValueError(f"Unsupported stream transform: {transform}")
+        apply_log2 = transform == 1
+        apply_asinh = transform in (2, 3)
         log_offset = reader.f64("stream.log_offset")
+        transform_scale = reader.f64("stream.transform_scale") if version >= 4 else 1.0
+        transform_origin = reader.f64("stream.transform_origin") if version >= 4 else 0.0
+        transform_span = reader.f64("stream.transform_span") if version >= 4 else 1.0
+        if not (np.isfinite(transform_scale) and transform_scale > 0 and
+                np.isfinite(transform_origin) and np.isfinite(transform_span) and transform_span > 0):
+            raise ValueError("Invalid AVENC transform scale/origin/span")
         encoded_width = reader.u32("stream.encoded_nx") or width
         encoded_height = reader.u32("stream.encoded_ny") or height
         crop_width = reader.u32("stream.crop_nx") or width
@@ -277,7 +287,12 @@ def _decode_metadata_v2_binary(data: bytes) -> Dict[str, Any]:
             "min_value": min_value,
             "max_value": max_value,
             "apply_log2": apply_log2,
+            "apply_asinh": apply_asinh,
             "log_offset": log_offset,
+            "apply_shifted_log": transform == 4,
+            "transform_scale": transform_scale,
+            "transform_origin": transform_origin,
+            "transform_span": transform_span,
             "encoded_width": encoded_width,
             "encoded_height": encoded_height,
             "crop_width": crop_width,
@@ -396,7 +411,12 @@ def _decode_metadata_v2_binary(data: bytes) -> Dict[str, Any]:
                 "min_value": stream["min_value"],
                 "max_value": stream["max_value"],
                 "apply_log2": stream["apply_log2"],
+                "apply_asinh": stream["apply_asinh"],
                 "log_offset": stream["log_offset"],
+                "apply_shifted_log": stream["apply_shifted_log"],
+                "transform_scale": stream["transform_scale"],
+                "transform_origin": stream["transform_origin"],
+                "transform_span": stream["transform_span"],
                 "encoded_width": stream["encoded_width"],
                 "encoded_height": stream["encoded_height"],
                 "crop_width": stream["crop_width"],
@@ -417,6 +437,7 @@ def _decode_metadata_v2_binary(data: bytes) -> Dict[str, Any]:
     return {
         "schema": "avenc.pack.v1",
         "metadata_version": 2,
+        "binary_format_version": version,
         "metadata_format": "binary",
         "metadata_flags": flags,
         "frames": sum(stream["frame_count"] for stream in streams.values()),

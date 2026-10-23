@@ -94,7 +94,7 @@ const std::vector<EncodeProfile> kProfiles = {
 
 [[noreturn]] void usage(const char *prog) {
     std::cerr << "Usage: " << prog
-              << " [--enc <profile>] [--enc_config_table <profiles.csv>] [--threads <N>|-threads <N>] [--metadata-version <1|2>] [--fast-path|--no_fast_path] [--headers_only_scan|--no_headers_only_scan] [-v] <grib1> [<grib2> ...] [output.mp4]\n"
+              << " [--enc <profile>] [--group-by <auto|var|var-level|level>] [--enc_config_table <profiles.csv>] [--threads <N>|-threads <N>] [--metadata-version <1|2>] [--fast-path|--no_fast_path] [--headers_only_scan|--no_headers_only_scan] [-v] <grib1> [<grib2> ...] [output.mp4]\n"
               << "Try '" << prog << " --help' for full help.\n";
     std::exit(1);
 }
@@ -293,7 +293,17 @@ void print_help(const char *prog) {
         << "  --lossless           libaom AV1, gray12le, auto range, CRF 0, bitrate 0\n"
         << "                       CPU-used 4, row-MT, GOP 16, no lookahead\n"
         << "                       Lossless video only: scientific 12-bit quantization still applies\n"
+        << "  --transform <linear|log|asinh|shifted-log>  Numerical transform (default: linear)\n"
+        << "  --shifted-log        Log after stream min/max normalization\n"
+        << "  --asinh-scale S      Positive scale for asinh(x/S), default 1\n"
+        << "  --log-alpha A        Positive shifted-log curvature, default 99\n"
+        << "  --log | --asinh | --linear    Transform shortcuts; log requires nonnegative data\n"
+        << "  --quantization <auto|frameMinMax|groupMinMax>  Override profile range selection\n"
         << "  --enc_config_table <profiles.csv>  Load/override profiles from CSV\n"
+        << "  --recipes <CSV>      Matching per-field overrides; absent fields/rules use defaults\n"
+        << "  --group-by <auto|var|var-level|level>  Stream grouping (default: var)\n"
+        << "                       var-level keeps each parameter/level in its own stream\n"
+        << "                       level can combine variables; grouping is separate from range auto\n"
         << "  --mask-fill <min|taper3>  Missing-cell fill (default: taper3 for shared GRIB bitmaps)\n"
         << "  --threads <N>, -threads <N>  FFmpeg thread count override\n"
         << "  --headers_only_scan  Fast metadata scan (default): defer template extraction\n"
@@ -317,6 +327,7 @@ void print_help(const char *prog) {
         << "Examples:\n"
         << "  " << prog << " input.grib\n"
         << "  " << prog << " --enc vp9_hq10 input.grib output.mp4\n"
+        << "  " << prog << " --high --group-by var-level source/*.grib2 forecast.high.mp4\n"
         << "  " << prog << " --enc hevc_good10_crf42 input.grib\n"
         << "  " << prog << " --enc_config_table custom_table.csv --enc avc_xcr10 input.grib\n"
         << "  " << prog << " -v input1.grib input2.grib output.mp4\n"
@@ -386,12 +397,17 @@ int main(int argc, char **argv) {
 
     std::string profile_name = "av1_lossless12_auto_400";
     std::string enc_config_table;
+    std::string recipes;
     std::vector<std::string> positionals;
     bool verbose = false;
     bool fast_path = false;
     bool headers_only_scan = true;
     int metadata_version = 2;
     std::string mask_fill = "taper3";
+    std::string transform = "linear";
+    std::string asinh_scale,log_alpha;
+    std::string quantization_override;
+    std::string group_by = "var";
     int threads = 0;
     bool list_options = false;
 
@@ -415,6 +431,24 @@ int main(int argc, char **argv) {
         std::string arg = argv[i];
         if (arg == "--enc" && i + 1 < argc) {
             profile_name = argv[++i];
+        } else if (arg == "--recipes" && i + 1 < argc) {
+            recipes=argv[++i];
+        } else if (arg == "--group-by") {
+            if (i + 1 >= argc) {
+                std::cerr << "--group-by requires auto, var, var-level, or level\n";
+                return 1;
+            }
+            group_by = argv[++i];
+        } else if (arg == "--transform" && i + 1 < argc) {
+            transform = argv[++i];
+        } else if(arg=="--asinh-scale"&&i+1<argc){
+            asinh_scale=argv[++i];
+        } else if(arg=="--log-alpha"&&i+1<argc){
+            log_alpha=argv[++i];
+        } else if (arg == "--log" || arg == "--asinh" || arg == "--linear" || arg == "--shifted-log") {
+            transform = arg.substr(2);
+        } else if (arg == "--quantization" && i + 1 < argc) {
+            quantization_override = argv[++i];
         } else if (arg == "--mask-fill" && i + 1 < argc) {
             mask_fill = argv[++i];
         } else if (arg == "--enc_config_table" && i + 1 < argc) {
@@ -449,6 +483,18 @@ int main(int argc, char **argv) {
         } else {
             positionals.push_back(arg);
         }
+    }
+
+    if (transform != "linear" && transform != "log" && transform != "asinh" && transform != "shifted-log")
+        throw std::runtime_error("transform must be linear, log, asinh, or shifted-log");
+    if ((transform == "asinh" || transform == "shifted-log") && metadata_version == 1)
+        throw std::runtime_error("asinh/shifted-log requires binary metadata (--metadata-version 2)");
+    if (!quantization_override.empty() && !is_quantization_mode(quantization_override))
+        throw std::runtime_error("quantization must be auto, frameMinMax, or groupMinMax");
+    if (group_by != "auto" && group_by != "var" &&
+        group_by != "var-level" && group_by != "level") {
+        std::cerr << "--group-by must be auto, var, var-level, or level: " << group_by << "\n";
+        return 1;
     }
 
     std::vector<EncodeProfile> profiles =
@@ -486,6 +532,7 @@ int main(int argc, char **argv) {
     const ProfileSelection profile_sel = resolve_profile_selection(profiles, profile_name);
     const EncodeProfile &profile = find_profile(profiles, profile_sel.base_name);
     EncodeProfile effective_profile = profile;
+    if (!quantization_override.empty()) effective_profile.quantization = quantization_override;
     bool avc_12bit_fallback = false;
     const bool is_avc = (effective_profile.codec == "avc" || effective_profile.codec == "h264");
     const bool uses_libx264 = effective_profile.encoder.empty() || effective_profile.encoder == "libx264";
@@ -501,18 +548,23 @@ int main(int argc, char **argv) {
 
     std::vector<std::string> cmd;
     cmd.push_back(use_local ? avpack_local : "avpack");
+    if(!recipes.empty()){cmd.push_back("--recipes");cmd.push_back(recipes);}
     cmd.push_back("--out");
     cmd.push_back(output);
     cmd.push_back("--mask-fill");
     cmd.push_back(mask_fill);
     cmd.push_back("--group-by");
-    cmd.push_back("var");
+    cmd.push_back(group_by);
     cmd.push_back("--codec");
     cmd.push_back(effective_profile.codec);
     cmd.push_back("--quality");
     cmd.push_back(effective_profile.quality);
     cmd.push_back("--bits");
     cmd.push_back(std::to_string(effective_profile.bits));
+    cmd.push_back("--transform");
+    cmd.push_back(transform);
+    if(!asinh_scale.empty()){cmd.push_back("--asinh-scale");cmd.push_back(asinh_scale);}
+    if(!log_alpha.empty()){cmd.push_back("--log-alpha");cmd.push_back(log_alpha);}
     cmd.push_back("--quantization");
     cmd.push_back(effective_profile.quantization);
     cmd.push_back("--chroma");
