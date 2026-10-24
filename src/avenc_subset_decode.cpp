@@ -642,14 +642,12 @@ extern "C" int avenc_decode_subset_to_float32(
             const int frame_idx = frame_start + t;
             double fmin = frame_min[static_cast<size_t>(frame_idx)];
             double fmax = frame_max[static_cast<size_t>(frame_idx)];
-            if (!std::isfinite(fmin) || !std::isfinite(fmax) || fmax <= fmin) {
+            if (!std::isfinite(fmin) || !std::isfinite(fmax) || fmax < fmin) {
                 fmin = stream.min_value;
                 fmax = stream.max_value;
             }
             double span = fmax - fmin;
-            if (!(span > 0.0)) {
-                span = std::max(1e-12, std::fabs(fmin) * 1e-12);
-            }
+            // Equal bounds reconstruct a constant, independent of codec pixels.
             const bool has_bitmap = has_shared_bitmap || (frame_bitmap[static_cast<size_t>(frame_idx)] != 0u);
             const uint32_t qvalid = has_bitmap ? (qmax > 0 ? qmax - 1u : 0u) : qmax;
             if (qvalid == 0u) throw std::runtime_error("Invalid quantization denominator");
@@ -657,7 +655,7 @@ extern "C" int avenc_decode_subset_to_float32(
             const double d = 0.0;
             const double r = fmin * std::pow(10.0, d);
             const double eprime = std::log2(std::max(step * std::pow(10.0, d), 1e-30));
-            const double scale2 = std::pow(2.0, eprime);
+            const double scale2 = span == 0.0 ? 0.0 : std::pow(2.0, eprime);
             const size_t frame_off = static_cast<size_t>(t) * frame_pixels;
 
             for (int j = 0; j < use_h; ++j) {

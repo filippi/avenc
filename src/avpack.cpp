@@ -1901,10 +1901,6 @@ std::vector<Group> build_groups(const std::vector<MessageMeta> &messages, const 
             avenc_transform::validate(g.transform_scale,g.transform_origin,g.transform_span);
             g.value_min=0;g.value_max=g.raw_max>g.raw_min?1:0;
         }
-        if (std::isfinite(g.value_min) && std::isfinite(g.value_max) && g.value_max <= g.value_min) {
-            const double eps = std::max(1e-9, std::fabs(g.value_min) * 1e-9);
-            g.value_max = g.value_min + eps;
-        }
         groups.push_back(std::move(g));
     }
 
@@ -2002,6 +1998,14 @@ std::pair<double, double> quant_range_for_record(const Options &opts,
                                                  const Group &g,
                                                  const MessageMeta &m,
                                                  const std::vector<MessageMeta> &messages) {
+    // A constant frame is exact scientific state, even inside a shared-range
+    // stream. Equal bounds tell readers to ignore pixel values for valid cells.
+    if (std::isfinite(m.value_min) && m.value_min == m.value_max) {
+        const double constant = encode_transform(m.value_min, g.apply_log2,
+            g.apply_asinh, g.log_offset, g.apply_shifted_log,
+            g.transform_scale, g.transform_origin, g.transform_span);
+        if (std::isfinite(constant)) return {constant, constant};
+    }
     const bool use_group_minmax = use_group_minmax_for_group(opts, g, messages);
     double frame_min = use_group_minmax ? g.value_min : m.quant_min;
     double frame_max = use_group_minmax ? g.value_max : m.quant_max;
@@ -2009,16 +2013,12 @@ std::pair<double, double> quant_range_for_record(const Options &opts,
         frame_min=encode_transform(m.value_min,false,false,1,true,g.transform_scale,g.transform_origin,g.transform_span);
         frame_max=encode_transform(m.value_max,false,false,1,true,g.transform_scale,g.transform_origin,g.transform_span);
     }
-    if (!std::isfinite(frame_min) || !std::isfinite(frame_max) || frame_max <= frame_min) {
+    if (!std::isfinite(frame_min) || !std::isfinite(frame_max) || frame_max < frame_min) {
         frame_min = g.value_min;
         frame_max = g.value_max;
     }
-    if (!std::isfinite(frame_min) || !std::isfinite(frame_max) || frame_max <= frame_min) {
+    if (!std::isfinite(frame_min) || !std::isfinite(frame_max) || frame_max < frame_min) {
         throw std::runtime_error("Invalid value range for frame in group: " + g.label);
-    }
-    if (frame_max <= frame_min) {
-        const double eps = std::max(1e-9, std::fabs(frame_min) * 1e-9);
-        frame_max = frame_min + eps;
     }
     return {frame_min, frame_max};
 }
@@ -2035,7 +2035,7 @@ std::pair<double, double> quant_range_for_assignment(
         frame_index_in_group < ri->frame_quant_max.size()) {
         const double qmin = ri->frame_quant_min[frame_index_in_group];
         const double qmax = ri->frame_quant_max[frame_index_in_group];
-        if (std::isfinite(qmin) && std::isfinite(qmax) && qmax > qmin) {
+        if (std::isfinite(qmin) && std::isfinite(qmax) && qmax >= qmin) {
             return {qmin, qmax};
         }
     }
@@ -2243,7 +2243,7 @@ size_t encode_single_group_streaming(const Options &opts,
 
             double frame_min = 0.0;
             double frame_max = 0.0;
-            if (runtime_info.adaptive_group_minmax) {
+            if (runtime_info.adaptive_group_minmax && m.value_min != m.value_max) {
                 double data_min = std::numeric_limits<double>::infinity();
                 double data_max = -std::numeric_limits<double>::infinity();
                 for (size_t i = 0; i < pixels; ++i) {
@@ -2519,7 +2519,7 @@ void write_group_raw_files(const Options &opts,
 
             double frame_min = 0.0;
             double frame_max = 0.0;
-            if (ri.adaptive_group_minmax) {
+            if (ri.adaptive_group_minmax && fm.value_min != fm.value_max) {
                 double data_min = std::numeric_limits<double>::infinity();
                 double data_max = -std::numeric_limits<double>::infinity();
                 for (size_t i = 0; i < pixels; ++i) {
@@ -2560,11 +2560,8 @@ void write_group_raw_files(const Options &opts,
                 frame_min = quant_range.first;
                 frame_max = quant_range.second;
             }
-            double frame_span = frame_max - frame_min;
-            if (frame_span <= 0.0) {
-                frame_span = std::max(1e-9, std::fabs(frame_min) * 1e-9);
-                frame_max = frame_min + frame_span;
-            }
+            // Protect normalization's denominator without changing equal bounds.
+            const double frame_span = std::max(1e-12, frame_max - frame_min);
             ri.frame_quant_min[asg.frame_index_in_group] = frame_min;
             ri.frame_quant_max[asg.frame_index_in_group] = frame_max;
             const bool has_bitmap = (bitmap_present != 0);

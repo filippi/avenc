@@ -1992,15 +1992,12 @@ void write_grib_from_recon(const Options &opts, const ReconPayload &recon) {
             const uint32_t qmax = (1u << s.bits) - 1u;
             double frame_min = r.frame_min;
             double frame_max = r.frame_max;
-            if (!std::isfinite(frame_min) || !std::isfinite(frame_max) || frame_max <= frame_min) {
+            if (!std::isfinite(frame_min) || !std::isfinite(frame_max) || frame_max < frame_min) {
                 frame_min = s.min_value;
                 frame_max = s.max_value;
             }
             double frame_span = frame_max - frame_min;
-            if (frame_span <= 0.0) {
-                frame_span = std::max(1e-9, std::fabs(frame_min) * 1e-9);
-                frame_max = frame_min + frame_span;
-            }
+            // Zero span is an intentional constant-frame marker.
             const bool has_shared_bitmap = (s.shared_bitmap.size() == pixels);
             const bool has_bitmap = r.bitmap_present || has_shared_bitmap;
             const double qmax_d = static_cast<double>(qmax);
@@ -2209,7 +2206,7 @@ void write_zarr_from_recon(const Options &opts, const ReconPayload &recon) {
             if (it != frame_map.end()) r = it->second;
             double fmin = (r && std::isfinite(r->frame_min)) ? r->frame_min : stream.min_value;
             double fmax = (r && std::isfinite(r->frame_max)) ? r->frame_max : stream.max_value;
-            if (!(fmax > fmin)) fmax = fmin + 1e-12;
+            if (fmax < fmin) throw std::runtime_error("Reversed frame quantization bounds");
             const bool has_bitmap = has_shared_bitmap || (r && r->bitmap_present);
             const double qvalid_d = has_bitmap ? static_cast<double>(std::max<uint32_t>(1u, qmax - 1u)) : qmax_d;
             const double span = fmax - fmin;

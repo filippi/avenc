@@ -717,8 +717,8 @@ export class AvencModel extends EventTarget {
     const fallbackMax = safeNum(g?.value_max, safeNum(opts.max_value, 1));
     const min = safeNum(rec?.quantization_min, fallbackMin);
     const max = safeNum(rec?.quantization_max, fallbackMax);
-    if (max > min) return { min, max };
-    return { min: fallbackMin, max: fallbackMax > fallbackMin ? fallbackMax : fallbackMin + 1e-12 };
+    if (max >= min) return { min, max };
+    return { min: fallbackMin, max: fallbackMax >= fallbackMin ? fallbackMax : fallbackMin + 1e-12 };
   }
 
   getFrameTimestampLabel(frameIndex) {

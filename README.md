@@ -122,6 +122,12 @@ Very small grids may not fit a profile's tile arrangement (the default AV1
 profile currently fails on a 64 × 64 synthetic field). Use `--fast` or a custom
 encoder configuration with suitable tiling for such inputs.
 
+Constant GRIB frames preserve equal per-frame min/max bounds, including within
+shared-range streams. Updated readers reconstruct the constant independently of
+video pixel values and retain the original bitmap. Nonlinear inverse transforms
+still have ordinary floating-point roundoff. Use updated native/browser
+readers for these files; already encoded offsets require re-encoding from GRIB.
+
 All shortcuts use automatic quantization-range selection unless overridden with `--quantization`. `auto` selects the
 range policy per grouped stream; it can mix `frameMinMax` and `groupMinMax` in
 one MP4. `--enc` selects a named configuration; `--enc_config_table profiles.csv`

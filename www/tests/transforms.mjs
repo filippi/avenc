@@ -5,7 +5,7 @@ import { execFileSync } from 'node:child_process';
 const modelSource = (await readFile(new URL('../js/avenc_model.js', import.meta.url), 'utf8'))
   .replace(/^import .*?;\n/, 'import { unzipSync as decompressSync } from "node:zlib"; const strFromU8 = b => new TextDecoder().decode(b);\n')
   + '\nexport { decodeAvencCommentPayload };';
-const { decodeAvencCommentPayload } = await import(`data:text/javascript;base64,${Buffer.from(modelSource).toString('base64')}`);
+const { decodeAvencCommentPayload, AvencModel } = await import(`data:text/javascript;base64,${Buffer.from(modelSource).toString('base64')}`);
 const extractorSource = (await readFile(new URL('../js/avenc_extractor.js', import.meta.url), 'utf8'))
   .replace(/^import .*?;\n/gm, '').split('const extractor = new AvencExtractor();')[0]
   + '\nexport { AvencExtractor };';
@@ -28,6 +28,16 @@ for(const q of [0,2047,4095]){
   assert(Math.abs(scaled-1e-6*Math.sinh(y))<1e-18);
   const shifted=decode(q,12,12,{min:0,max:1},{apply_shifted_log:true,transform_scale:99,transform_origin:-5,transform_span:10},false);
   assert(Math.abs(shifted-(-5+10*Math.expm1(q/4095*Math.log1p(99))/99))<1e-12);
+}
+// Equal per-frame bounds must survive even when the stream range varies.
+const bounds = AvencModel.prototype._getFrameQuantBounds;
+for (const constant of [0, 7.5, -2.25]) {
+  const context = {currentGroup:{value_min:-1000,value_max:1000},
+    _getFrameRecord:()=>({quantization_min:constant,quantization_max:constant})};
+  const range = bounds.call(context,0);
+  assert.deepEqual(range,{min:constant,max:constant});
+  for (const q of [0,1,29039,65535])
+    assert.equal(decode(q,16,16,range,{},false),constant);
 }
 for (const file of process.argv.slice(2)) {
   const probe = JSON.parse(execFileSync('ffprobe', ['-v','error','-show_entries','format_tags=comment','-of','json',file]));
