@@ -1,6 +1,6 @@
 import { AvencModel } from './avenc_model.js';
 import { decompressSync } from 'https://cdn.jsdelivr.net/npm/fflate@0.8.2/esm/browser.js';
-import { decodeValue, makeGeometry, gribAxes, lumaStorageCode } from './avenc_met_core.js';
+import { decodeValue, streamGeometry, lumaStorageCode } from './avenc_met_core.js';
 
 // Strict byte-range transport. Never fall back to a whole-file HTTP 200.
 export class ByteRanges {
@@ -54,12 +54,11 @@ export class AvencRangeModel extends AvencModel {
     // stream indices still include them: use every vide handler, preserving order.
     this.videoTracks=info.tracks.filter(t=>this._mp4File.getTrackById(t.id)?.mdia?.hdlr?.handler==='vide').sort((a,b)=>a.id-b.id);
     this.fileSizeBytes=this.transport.size;
-    const g=this.groups[0],axes=gribAxes(g.options.template_b64);
-    if(g.options.template_b64&&!axes)throw new Error('This viewer supports regular latitude/longitude GRIB grids only.');
-    this.geometry=makeGeometry(axes?.lat||this.latCoord.values,axes?.lon||this.lonCoord.values,Number(g.options.crop_width),Number(g.options.crop_height));
+    this.geometry=this.geometryForGroup(this.groups[0]);
     // No media payload has been downloaded at this point.
     return this;
   }
+  geometryForGroup(group){return group._mapGeometry ||= streamGeometry(group);}
   async supported(group){
     const track=this.videoTracks[Number(group.stream_index)];
     if(!globalThis.VideoDecoder||!track)return false;
@@ -125,14 +124,7 @@ export class AvencRangeModel extends AvencModel {
   }
   getGrid(group,frame,signal){
     const key=`${group.id}:${frame}`;
-    if(!group._mapGeometry){
-      const axes=gribAxes(group.options.template_b64);
-      if(!axes)throw new Error('This field has no supported regular GRIB grid.');
-      const geo=makeGeometry(axes.lat,axes.lon,Number(group.options.crop_width),Number(group.options.crop_height));
-      const base=this.geometry;
-      if(['nx','ny','lat0','lon0','dx','dy'].some(k=>Math.abs(geo[k]-base[k])>1e-6))throw new Error('This field uses a different spatial grid. Open it in the scientific viewer.');
-      group._mapGeometry=geo;
-    }
+    const geometry=this.geometryForGroup(group);
     if(this.gridCache.has(key))return Promise.resolve(this.gridCache.get(key));
     const work=async()=>{
       signal?.throwIfAborted();if(this.gridCache.has(key))return this.gridCache.get(key);
@@ -145,7 +137,7 @@ export class AvencRangeModel extends AvencModel {
         if(nativeBits<targetBits)throw new Error(`Decoder exposed only ${nativeBits} of ${targetBits} scientific bits.`);
         const bytes=new Uint8Array(fr.frame.allocationSize());const layout=await fr.frame.copyTo(bytes);
         const data=new DataView(bytes.buffer),o=group.options,nx=Number(o.crop_width),ny=Number(o.crop_height),values=new Float32Array(nx*ny);
-        if(nx!==this.geometry.nx||ny!==this.geometry.ny)throw new Error('This stream has a different grid.');
+        if(nx!==geometry.nx||ny!==geometry.ny)throw new Error('This stream has inconsistent grid dimensions.');
         let mask=null;
         if(o.bitmap_payload){mask=group._mapBitmap ||=decompressSync(Uint8Array.from(atob(o.bitmap_payload),c=>c.charCodeAt(0)));if(mask.length!==nx*ny)throw new Error('Invalid shared bitmap size');}
         const rec=this._getFrameRecord(frame),hasBitmap=Boolean(mask||rec.bitmapPresent),bounds=this._getFrameQuantBounds(frame);

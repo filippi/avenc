@@ -21,10 +21,12 @@ export function fieldArchive({u,v,geometry,config,metadata}){
   if(u.length!==nx*ny||(v&&v.length!==u.length))throw new Error('Field/grid shape mismatch');
   const field=new Float32Array(u.length);
   for(let i=0;i<u.length;i++)field[i]=(v?Math.hypot(u[i],v[i]):u[i])*config.factor+config.offset;
-  const lat=Float64Array.from({length:ny},(_,i)=>lat0+dy*i);
-  const lon=Float64Array.from({length:nx},(_,i)=>((lon0+dx*i+180)%360+360)%360-180);
-  const meta={...metadata,shape:[ny,nx],dimensions:['latitude','longitude'],units:config.unit,source_units:config.sourceUnit||(v?'m/s':null),display_factor:config.factor,display_offset:config.offset,missing:'NaN',reconstructed:true,notice:'Highly compressed visualization data; not for scientific analysis or operational decisions.'};
-  const files={'field.npy':npy(field,[ny,nx]),'latitude.npy':npy(lat),'longitude.npy':npy(lon),'metadata_json.npy':npy(new TextEncoder().encode(JSON.stringify(meta)))};
-  if(v){files['u.npy']=npy(u,[ny,nx]);files['v.npy']=npy(v,[ny,nx]);meta.vector_units='m/s';files['metadata_json.npy']=npy(new TextEncoder().encode(JSON.stringify(meta)));}
+  const native=Boolean(geometry.native),dimensions=native?['row','column']:['latitude','longitude'];
+  const y=Float64Array.from({length:ny},(_,i)=>native?i:lat0+dy*i);
+  const x=Float64Array.from({length:nx},(_,i)=>native?i:((lon0+dx*i+180)%360+360)%360-180);
+  const meta={...metadata,shape:[ny,nx],dimensions,geometry_mode:native?'native':'geographic',units:config.unit,source_units:config.sourceUnit||(v?'m/s':null),display_factor:config.factor,display_offset:config.offset,missing:'NaN',reconstructed:true,notice:'Highly compressed visualization data; not for scientific analysis or operational decisions.'};
+  if(native)meta.geographic_positioning='unavailable; row/column indices in stored raster order';
+  const files={'field.npy':npy(field,[ny,nx]),[dimensions[0]+'.npy']:npy(y),[dimensions[1]+'.npy']:npy(x),'metadata_json.npy':npy(new TextEncoder().encode(JSON.stringify(meta)))};
+  if(v){files['u.npy']=npy(u,[ny,nx]);files['v.npy']=npy(v,[ny,nx]);meta.vector_units='m/s';if(native)meta.vector_orientation='unspecified; no geographical direction inferred';files['metadata_json.npy']=npy(new TextEncoder().encode(JSON.stringify(meta)));}
   return files;
 }

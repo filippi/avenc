@@ -78,3 +78,8 @@ exports reconstructed preview data, not the original GRIB values.
 
 `met.html` redirects old links to `index.html`, preserving query parameters.
 The former `index.php` has been removed.
+
+Unsupported geographic grid definitions automatically open in a **native-grid**
+view with row/column axes and no basemap or wind directions. Playback, probes
+and NPZ exports remain available; native exports use `row`/`column` coordinates.
+This fallback displays the stored raster without reprojection.

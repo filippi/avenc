@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 const text=await readFile(new URL('../js/avenc_met_core.js',import.meta.url),'utf8');
-const {decodeValue,makeGeometry,gridIndex,buildInventory,pairWind,gribAxes,lumaStorageCode}=await import('data:text/javascript;base64,'+Buffer.from(text).toString('base64'));
+const {decodeValue,makeGeometry,gridIndex,buildInventory,pairWind,gribAxes,lumaStorageCode,streamGeometry,compatibleGeometry}=await import('data:text/javascript;base64,'+Buffer.from(text).toString('base64'));
 const geo=makeGeometry([90,0,-90],[0,90,180,270],4,3);
 assert.equal(gridIndex(geo,0,-90),7);assert.equal(gridIndex(geo,0,270),7);assert.equal(gridIndex(geo,90,360),0);
 assert.equal(gridIndex(geo,-90,-180),10);
@@ -33,3 +33,11 @@ dv.setUint32(46,1440);dv.setUint32(50,721);dv.setUint32(62,90000000);dv.setUint3
 const axes=gribAxes(Buffer.from(grib).toString('base64'));assert.equal(axes.lon[1439],539.75);assert.equal(axes.lat[720],-90);
 const wrapped=makeGeometry(axes.lat,axes.lon,1440,721);assert.equal(gridIndex(wrapped,46,5),176*1440+740);
 console.log('PASS: gray16 storage alignment and dateline-wrapped GRIB geometry.');
+
+const rect={options:{crop_width:4,crop_height:3}};
+const native=streamGeometry(rect);assert.equal(native.native,true);assert.equal(gridIndex(native,0,0),0);assert.equal(gridIndex(native,-2,3),11);assert.equal(gridIndex(native,1,0),-1);assert.equal(native.cyclic,false);
+const regular={options:{crop_width:1440,crop_height:721,template_b64:Buffer.from(grib).toString('base64')}};assert.equal(streamGeometry(regular).native,false);
+const projected=grib.slice();new DataView(projected.buffer).setUint16(28,30);assert.equal(streamGeometry({options:{crop_width:1440,crop_height:721,template_b64:Buffer.from(projected).toString('base64')}}).native,true);
+const alternating=grib.slice();alternating[87]=16;assert.equal(streamGeometry({options:{crop_width:1440,crop_height:721,template_b64:Buffer.from(alternating).toString('base64')}}).native,true);
+assert(compatibleGeometry(native,{...native}));assert(!compatibleGeometry(native,{...native,nx:5}));assert(!compatibleGeometry(native,{...native,native:false}));assert.throws(()=>streamGeometry({options:{crop_width:0,crop_height:3}}));
+console.log('PASS: unsupported/missing grid and scan fallback, truthful native row/column orientation, invalid dimensions and geometry compatibility.');

@@ -11,3 +11,8 @@ const meta=unpack(files['metadata_json.npy']);const data=JSON.parse(new TextDeco
 const scalar=fieldArchive({u:new Float32Array([273.15,0,NaN,280]),geometry:{nx:2,ny:2,lat0:0,lon0:0,dx:1,dy:1},config:{unit:'°C',factor:1,offset:-273.15},metadata:{variable:'t'}});assert(!scalar['v.npy']);assert(Math.abs(unpack(scalar['field.npy']).data.getFloat32(0,true))<1e-4);
 assert.throws(()=>npy(u,[1,3]));assert.throws(()=>npy(new Int16Array(2)));
 console.log('PASS: NumPy v1 headers/alignment, Float32 arrays, NaNs, wind speed/components, display conversion, coordinates, UTF-8 metadata and shape validation.');
+
+const raster=fieldArchive({u,geometry:{native:true,nx:2,ny:2,lat0:0,lon0:0,dx:1,dy:-1},config:{unit:'m/s',factor:1,offset:0},metadata:{variable:'u'}});
+assert(raster['row.npy']&&raster['column.npy']);assert(!raster['latitude.npy']&&!raster['longitude.npy']);assert.equal(unpack(raster['row.npy']).data.getFloat64(8,true),1);
+const rm=unpack(raster['metadata_json.npy']);const rmeta=JSON.parse(new TextDecoder().decode(new Uint8Array(rm.data.buffer,rm.data.byteOffset,rm.data.byteLength)));assert.deepEqual(rmeta.dimensions,['row','column']);assert.equal(rmeta.geometry_mode,'native');assert(Number.isNaN(unpack(raster['field.npy']).data.getFloat32(4,true)));
+console.log('PASS: native NPZ has row/column indices, no invented geographic coordinates, declared geometry and preserved NaNs.');

@@ -1,23 +1,23 @@
 import { zip } from 'https://cdn.jsdelivr.net/npm/fflate@0.8.2/esm/browser.js';
 import { fieldArchive } from './avenc_npz.js';
 import { AvencRangeModel } from './avenc_range_model.js';
-import { buildInventory, pairWind, gridIndex, displayConfiguration, formatReading } from './avenc_met_core.js';
+import { buildInventory, pairWind, gridIndex, displayConfiguration, formatReading, compatibleGeometry } from './avenc_met_core.js';
 const $=id=>document.getElementById(id),query=new URLSearchParams(location.search);
 let datasetCatalogue=null,exportBusy=false;
 let catalogue=null,catalogueError='';
 const cataloguePromise=fetch(new URL('../data/ifs_variables.json',import.meta.url)).then(async r=>{if(!r.ok)throw new Error('Variable catalogue unavailable');const c=await r.json();if(c.schema!=='ecflix.variables.v1')throw new Error('Invalid variable catalogue');return c;}).catch(e=>{catalogueError=e.message;return null;});
-const model=new AvencRangeModel(),map=L.map('map',{zoomControl:false,worldCopyJump:true,minZoom:2,maxZoom:10}).setView([46,5],4);
-L.control.zoom({position:'topright'}).addTo(map);L.control.scale({position:'bottomleft',imperial:false}).addTo(map);
+const model=new AvencRangeModel(),map=L.map('map',{zoomControl:false,worldCopyJump:false,minZoom:2,maxZoom:10}).setView([46,5],4);
+L.control.zoom({position:'topright'}).addTo(map);const scaleControl=L.control.scale({position:'bottomleft',imperial:false}).addTo(map);
 map.createPane('weather');map.getPane('weather').style.zIndex=420;
 let base,labels;
 function basemap(kind){
   if(base)map.removeLayer(base);if(labels)map.removeLayer(labels);base=labels=null;
-  if(kind==='none')return;
+  if(kind==='none'||model.geometry?.native)return;
   const attribution='© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
   map.getPane('tilePane').classList.toggle('dark-base',kind==='dark');
   base=L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution,maxZoom:19}).addTo(map);
 }
-basemap('dark');
+// Wait for grid classification before requesting geographic background tiles.
 const PALETTES={signed:[[45,70,133],[63,138,180],[165,210,222],[232,239,232],[245,190,128],[217,109,76],[153,45,77]],wind:[[0,46,81],[28,113,154],[42,169,171],[122,202,151],[224,208,107],[246,147,78],[210,66,100],[126,56,142]],temperature:[[71,60,129],[52,121,175],[85,188,185],[183,218,151],[248,216,112],[242,139,83],[191,60,74]],rain:[[31,68,94],[46,119,159],[56,191,181],[140,205,107],[245,215,87],[234,124,71],[172,55,110]],cloud:[[28,52,73],[67,94,113],[117,141,155],[180,197,204],[238,245,246]]};
 const FIELDS={wind:{title:'Wind',description:'Wind speed & direction',unit:'m/s',range:[0,40],ticks:[0,10,20,30,40],palette:'wind',factor:1,offset:0},temperature:{title:'Temperature',description:'Air temperature',unit:'°C',range:[-30,40],ticks:[-30,-10,10,30,40],palette:'temperature',factor:1,offset:-273.15},rain:{title:'Precipitation',description:'Total accumulated precipitation',unit:'mm',range:[0,100],ticks:[0,1,10,50,100],palette:'rain',factor:1000,offset:0,log:true},cloud:{title:'Cloud cover',description:'Total cloud cover',unit:'%',range:[0,100],ticks:[0,25,50,75,100],palette:'cloud',factor:100,offset:0}};
 let views=[],supported=new Map(),frames=[],index=0,field='wind',custom=null,activeConfig=FIELDS.wind,current=null,controller=null,loadController=null,sequence=0,playing=false,timer=null,point=null,loading=false,noticeTimer=null;
@@ -52,11 +52,11 @@ const Weather=L.Layer.extend({
       const rgb=colors[Math.round(normalized(v,activeConfig)*255)],off=(y*this.width+x)*4;
       im.data.set(rgb,off);im.data[off+3]=(field==='rain'&&v<.05)?0:Math.round(Number($('opacity').value)*2.55);
     }
-    ctx.putImageData(im,0,0);if(resized||!this.particles)this.particles=Array.from({length:Math.min(750,Math.floor(this.width*this.height/500))},()=>({x:Math.random()*this.width,y:Math.random()*this.height,age:Math.random()*90}));if(!current.v)this.flow.getContext('2d').clearRect(0,0,this.width,this.height);this.drawArrows();
+    ctx.putImageData(im,0,0);if(resized||!this.particles)this.particles=Array.from({length:Math.min(750,Math.floor(this.width*this.height/500))},()=>({x:Math.random()*this.width,y:Math.random()*this.height,age:Math.random()*90}));if(!current.v)this.flow.getContext('2d').clearRect(0,0,this.width,this.height);this.drawArrows();updateNativeAxes();
   },
   vector(x,y){const i=this.cols?.[Math.round(x)],j=this.rows?.[Math.round(y)];if(i==null||j==null||i<0||j<0||!current?.v)return null;const k=j*model.geometry.nx+i;const u=current.u[k],v=current.v[k];return Number.isFinite(u)&&Number.isFinite(v)?[u,v,this.lats[Math.round(y)]]:null;},
   drawArrows(){
-    const ctx=this.canvas.getContext('2d');if(!$('arrows').checked||!current?.v)return;
+    const ctx=this.canvas.getContext('2d');if(model.geometry?.native||!$('arrows').checked||!current?.v)return;
     ctx.strokeStyle='#f3fbffe0';ctx.lineWidth=.65;
     for(let y=36;y<this.height;y+=29)for(let x=25;x<this.width;x+=29){const v=this.vector(x,y);if(!v)continue;const speed=Math.hypot(v[0],v[1]);if(speed<.5)continue;
       const a=Math.atan2(-v[1],v[0]),len=Math.min(12,5+speed*.16),dx=Math.cos(a)*len,dy=Math.sin(a)*len;
@@ -67,7 +67,7 @@ const Weather=L.Layer.extend({
     this.raf=requestAnimationFrame(this.animate);
     if(now-this.last<32)return;const dt=Math.min(.06,(now-this.last)/1000);this.last=now;
     const ctx=this.flow.getContext('2d');
-    if(!current?.v||!$('flow').checked||matchMedia('(prefers-reduced-motion: reduce)').matches){ctx.clearRect(0,0,this.width,this.height);return;}
+    if(model.geometry?.native||!current?.v||!$('flow').checked||matchMedia('(prefers-reduced-motion: reduce)').matches){ctx.clearRect(0,0,this.width,this.height);return;}
     ctx.globalCompositeOperation='destination-in';ctx.fillStyle='rgba(0,0,0,.90)';ctx.fillRect(0,0,this.width,this.height);ctx.globalCompositeOperation='source-over';ctx.strokeStyle='#edfaffad';ctx.lineWidth=.7;ctx.beginPath();
     const scale=256*2**map.getZoom()/40075016*16000/2;
     for(const p of this.particles||[]){const v=this.vector(p.x,p.y);if(!v||p.age++>100||p.x<0||p.y<0||p.x>=this.width||p.y>=this.height){p.x=Math.random()*this.width;p.y=Math.random()*this.height;p.age=0;continue;}
@@ -77,6 +77,39 @@ const Weather=L.Layer.extend({
   }
 });
 const weather=new Weather().addTo(map);
+let viewGeometryKey='';
+function fitNative(){
+  const g=model.geometry;if(!g?.native)return;
+  map.fitBounds([[.5,-.5],[-g.ny+.5,g.nx-.5]],{animate:false,paddingTopLeft:[matchMedia('(max-width:760px)').matches?40:145,225],paddingBottomRight:[105,135]});
+}
+function configureGeometry(g){
+  const key=JSON.stringify([g.native,g.nx,g.ny,g.lat0,g.lon0,g.dx,g.dy]);if(key===viewGeometryKey)return;viewGeometryKey=key;
+  current=null;point=null;$('probe').hidden=true;if(marker){map.removeLayer(marker);marker=null;}
+  basemap('none');model.geometry=g;map.options.zoomSnap=g.native?0:1;map.options.zoomDelta=g.native ? 0.5 : 1;map.options.crs=g.native?L.CRS.Simple:L.CRS.EPSG3857;map.setMinZoom(g.native?-8:2);
+  document.body.classList.toggle('native-grid',g.native);$('nativeNotice').hidden=!g.native;$('nativeAxes').hidden=!g.native;
+  for(const id of ['basemap','flow','arrows']){$(id).disabled=g.native;$(id).title=g.native?'Unavailable in native-grid view':'';}
+  $('home').title=$('world').title=g.native?'Fit native grid':'Reset map';
+  $('home').setAttribute('aria-label',g.native?'Fit native grid':'Return to Europe');$('world').setAttribute('aria-label',g.native?'Fit native grid':'Show the world');
+  scaleControl.remove();
+  if(g.native){
+    map.setView([0,0],0,{reset:true});fitNative();
+    if(query.has('grid_row')&&query.has('grid_column')){const row=Number(query.get('grid_row')),col=Number(query.get('grid_column')),zoom=Number(query.get('zoom'));if(Number.isFinite(row)&&Number.isFinite(col)&&Number.isFinite(zoom))map.setView([-row,col],Math.max(-8,Math.min(10,zoom)),{reset:true});}
+  }else{map.setView([46,5],4,{reset:true});scaleControl.addTo(map);basemap($('basemap').value);}
+  $('resolution').textContent=g.native?`NATIVE GRID · ${g.nx} × ${g.ny}`:`${Math.abs(g.dx).toFixed(2)}° GRID · ${g.nx} × ${g.ny}`;
+  updateNativeAxes();
+}
+function updateNativeAxes(){
+  const g=model.geometry;if(!g?.native)return;
+  for(const [id,horizontal,n] of [['columnAxis',true,g.nx],['rowAxis',false,g.ny]]){
+    const axis=$(id),rect=axis.getBoundingClientRect(),labels=[];
+    for(let j=0;j<=5;j++){
+      const ll=map.containerPointToLatLng(horizontal?[rect.left+rect.width*j/5,0]:[0,rect.top+rect.height*j/5]);
+      const value=Math.round(horizontal?ll.lng:-ll.lat);if(value<0||value>=n||labels.some(e=>e.textContent===String(value)))continue;
+      const pixel=map.latLngToContainerPoint(horizontal?[0,value]:[-value,0]);
+      const span=document.createElement('span');span.textContent=value;span.style[horizontal?'left':'top']=((horizontal?pixel.x-rect.left:pixel.y-rect.top)/(horizontal?rect.width:rect.height)*100)+'%';labels.push(span);
+    }axis.replaceChildren(...labels);
+  }
+}
 function find(name,level){return views.find(v=>v.name===name&&(level===undefined||v.level===String(level)));}
 function currentViews(){
   if(custom)return [custom];
@@ -127,9 +160,11 @@ async function render(){
   if(current?.viewKey!==viewKey){current=null;weather.render();$('probe').hidden=true;}
   noticeTimer=setTimeout(()=>{if(ticket===sequence)tell(`Reading ${activeConfig.title.toLowerCase()} · ${date(f.ms)}…`);},350);
   try{
+    const geometry=model.geometryForGroup(f.group);
+    if(f.v&&!compatibleGeometry(geometry,model.geometryForGroup(f.v.group)))throw new Error('U and V do not share the same grid. Select a scalar field.');
     const u=await model.getGrid(f.group,f.frame,signal);const v=f.v?await model.getGrid(f.v.group,f.v.frame,signal):null;
     if(ticket!==sequence)return;
-    current={u,v,ms:f.ms,viewKey,record:f.record};
+    configureGeometry(geometry);current={u,v,ms:f.ms,viewKey,record:f.record};
     loading=false;clearTimeout(noticeTimer);$('time').value=index;
     if(activeConfig.auto){let min=Infinity,max=-Infinity;for(const x of u)if(Number.isFinite(x)){const v=x*activeConfig.factor+activeConfig.offset;min=Math.min(min,v);max=Math.max(max,v);}if(!Number.isFinite(min))throw new Error('This field has no finite data.');if(activeConfig.symmetric){const m=Math.max(Math.abs(min),Math.abs(max),1e-12);activeConfig.range=[-m,m];}else activeConfig.range=[min,max>min?max:min+1];updateLegend();}
     $('validTime').textContent=date(f.ms);
@@ -151,10 +186,10 @@ let marker=null;
 function probe(ll){
   if(!current)return;point=ll;const k=gridIndex(model.geometry,ll.lat,ll.lng);const raw=k>=0?current.u[k]:NaN,other=k>=0?current.v?.[k]:NaN;
   let value=current.v?Math.hypot(raw,other):raw;value=value*activeConfig.factor+activeConfig.offset;
-  $('probeCoords').textContent=`${ll.lat.toFixed(2)}° · ${(((ll.lng+180)%360+360)%360-180).toFixed(2)}°`;
+  $('probeCoords').textContent=model.geometry.native?(k<0?'Outside native grid':`Column ${k%model.geometry.nx} · row ${Math.floor(k/model.geometry.nx)}`):`${ll.lat.toFixed(2)}° · ${(((ll.lng+180)%360+360)%360-180).toFixed(2)}°`;
   const number=document.createElement('span'),unit=document.createElement('span');number.textContent=formatReading(value,activeConfig);unit.className='reading-unit';unit.textContent=Number.isFinite(value)?activeConfig.unit:'';$('probeValue').replaceChildren(number,unit);
-  const direction=current.v?((Math.atan2(-raw,-other)*180/Math.PI+360)%360):null;
-  $('probeDetail').textContent=current.v&&Number.isFinite(value)?`From ${direction.toFixed(0)}° · U ${raw.toFixed(2)}, V ${other.toFixed(2)} m/s`:'Nearest native grid point · '+date(current.ms);
+  const direction=current.v&&!model.geometry.native?((Math.atan2(-raw,-other)*180/Math.PI+360)%360):null;
+  $('probeDetail').textContent=current.v&&!model.geometry.native&&Number.isFinite(value)?`From ${direction.toFixed(0)}° · U ${raw.toFixed(2)}, V ${other.toFixed(2)} m/s`:(model.geometry.native?'Stored raster cell · ':'Nearest native grid point · ')+date(current.ms);
   $('probe').hidden=false;if(marker)map.removeLayer(marker);marker=L.circleMarker(ll,{radius:5,weight:2,color:'white',fillColor:'#142c3b',fillOpacity:1}).addTo(map);
 }
 async function open(){
@@ -167,7 +202,7 @@ async function open(){
     const usable=v=>v&&v.frames.every(f=>supported.get(f.group.id));
     const windLevels=views.filter(v=>v.name==='u'&&usable(v)&&usable(find('v',v.level))).map(v=>v.level);
     const tempLevels=views.filter(v=>v.name==='t'&&usable(v)).map(v=>v.level);
-    const levels=[...new Set([...windLevels,...tempLevels])].sort((a,b)=>Number(b)-Number(a));
+    const levels=[...new Set([...windLevels,...tempLevels,...views.filter(v=>v.kind==='isobaricInhPa'&&usable(v)).map(v=>v.level)])].sort((a,b)=>Number(b)-Number(a));
     $('level').replaceChildren(...['surface',...levels].map(v=>{const o=document.createElement('option');o.value=v;o.textContent=v==='surface'?'Surface / 10 m':v+' hPa';return o;}));
     $('allFields').replaceChildren(new Option('Choose a variable…',''),...views.sort((a,b)=>a.name.localeCompare(b.name)||Number(b.level)-Number(a.level)).map(v=>{const o=new Option(`${v.variable?.title||v.name} (${v.name}) · ${v.level} · ${v.variable?.display.unit||'unit unknown'}${v.member?' · member '+v.member:''}${usable(v)?'':' · codec unsupported'}`,v.key);o.disabled=!usable(v);return o;}));$('allFields').disabled=false;
     const quick=document.createElement('optgroup');quick.label='Weather layers';
@@ -185,7 +220,7 @@ async function open(){
       b.onclick=()=>{const candidates=views.filter(v=>v.name===name&&usable(v));const v=candidates.find(v=>v.level===$('level').value)||candidates.find(v=>v.level==='850')||candidates[0];$('allFields').value=v.key;$('allFields').onchange();};
       document.querySelector('.field-buttons').append(b);
     }
-    const geo=model.geometry;$('resolution').textContent=`${Math.abs(geo.dx).toFixed(2)}° GLOBAL · ${geo.nx} × ${geo.ny}`;
+    configureGeometry(model.geometry);
     $('datasetInfo').textContent=`${bytes(model.fileSizeBytes)} · ${model.videoTracks.length} streams · ${views.length} field/level combinations${catalogueError?' · '+catalogueError:''}`;
     const selected=query.get('field');custom=views.find(v=>v.key===selected&&usable(v))||null;
     field=FIELDS[query.get('layer')]?query.get('layer'):'wind';
@@ -193,12 +228,12 @@ async function open(){
     if(!custom&&document.querySelector('[data-field=wind]').disabled)custom=views.find(usable);
     if([...$('level').options].some(o=>o.value===query.get('level')))$('level').value=query.get('level');
     const lat=Number(query.get('lat')),lon=Number(query.get('lon')),zoom=Number(query.get('zoom'));
-    if(query.has('lat')&&query.has('lon')&&Number.isFinite(lat)&&Number.isFinite(lon))map.setView([Math.max(-80,Math.min(80,lat)),lon],Math.max(2,Math.min(10,zoom||4)));
+    if(!model.geometry.native&&query.has('lat')&&query.has('lon')&&Number.isFinite(lat)&&Number.isFinite(lon))map.setView([Math.max(-80,Math.min(80,lat)),lon],Math.max(2,Math.min(10,zoom||4)));
     document.querySelector('.tools-link').href='./viewer.html?dataset='+encodeURIComponent($('dataset').value);
     if(!custom&&document.querySelector('[data-field=wind]').disabled)throw new Error('No browser-decodable field found. Use AV1/HEVC profiles with supported bit depths, or the native AVENC tools.');
     if(custom)$('allFields').value=custom.key;
     setHeadings();if(updateFrames(query.get('time')?Number(query.get('time')):undefined))await render();
-  }catch(e){if(e.name!=='AbortError')tell(e.message,true);}finally{if(!signal.aborted){$('connect').disabled=false;$('datasetSelect').disabled=false;syncDatasetSelection();}}
+  }catch(e){if(e.name!=='AbortError'){loading=false;tell(e.message,true);}}finally{if(!signal.aborted){$('connect').disabled=false;$('datasetSelect').disabled=false;syncDatasetSelection();}}
 }
 for(const b of document.querySelectorAll('[data-field]'))b.onclick=()=>changeLayer(b.dataset.field);
 $('mobileParameter').onchange=()=>{const v=$('mobileParameter').value;if(v.startsWith('field:')){$('allFields').value=v.slice(6);$('allFields').onchange();}else changeLayer(v);};
@@ -207,10 +242,10 @@ $('allFields').onchange=()=>{if(!$('allFields').value)return;closeMobilePanel();
 $('time').oninput=()=>{stop();index=Number($('time').value);render();};$('previous').onclick=()=>{stop();step(-1);};$('next').onclick=()=>{stop();step(1);};
 $('play').onclick=()=>{if(playing)stop();else if(frames.length){playing=true;$('play').textContent='Ⅱ';$('play').setAttribute('aria-label','Pause forecast');step(1);}};
 $('opacity').oninput=()=>weather.render();$('arrows').onchange=()=>weather.render();$('flow').onchange=()=>weather.render();$('basemap').onchange=()=>basemap($('basemap').value);
-$('home').onclick=()=>map.setView([46,5],4);$('world').onclick=()=>map.setView([20,0],2);
+$('home').onclick=()=>model.geometry?.native?fitNative():map.setView([46,5],4);$('world').onclick=()=>model.geometry?.native?fitNative():map.setView([20,0],2);
 $('closeProbe').onclick=()=>{point=null;$('probe').hidden=true;if(marker)map.removeLayer(marker);marker=null;};map.on('click',e=>probe(e.latlng));
 $('connect').onclick=open;$('dataset').onkeydown=e=>{if(e.key==='Enter')open();};
-$('share').onclick=async()=>{const u=new URL(location.href);u.searchParams.set('layer',field);u.searchParams.set('level',$('level').value);u.searchParams.set('lat',map.getCenter().lat.toFixed(4));u.searchParams.set('lon',map.getCenter().lng.toFixed(4));u.searchParams.set('zoom',map.getZoom());u.searchParams.delete('field');u.searchParams.set('dataset',$('dataset').value);if(frames[index])u.searchParams.set('time',frames[index].ms);if(custom)u.searchParams.set('field',custom.key);try{await navigator.clipboard.writeText(u.href);tell('View link copied');setTimeout(()=>$('message').classList.add('ready'),1800);}catch{tell('Copy this URL: '+u.href);}};
+$('share').onclick=async()=>{const u=new URL(location.href);u.searchParams.set('layer',field);u.searchParams.set('level',$('level').value);if(model.geometry.native){u.searchParams.delete('lat');u.searchParams.delete('lon');u.searchParams.set('grid_row',(-map.getCenter().lat).toFixed(3));u.searchParams.set('grid_column',map.getCenter().lng.toFixed(3));}else{u.searchParams.delete('grid_row');u.searchParams.delete('grid_column');u.searchParams.set('lat',map.getCenter().lat.toFixed(4));u.searchParams.set('lon',map.getCenter().lng.toFixed(4));}u.searchParams.set('zoom',map.getZoom());u.searchParams.delete('field');u.searchParams.set('dataset',$('dataset').value);if(frames[index])u.searchParams.set('time',frames[index].ms);if(custom)u.searchParams.set('field',custom.key);try{await navigator.clipboard.writeText(u.href);tell('View link copied');setTimeout(()=>$('message').classList.add('ready'),1800);}catch{tell('Copy this URL: '+u.href);}};
 document.addEventListener('keydown',e=>{if(/INPUT|SELECT|TEXTAREA|BUTTON/.test(e.target.tagName))return;if(e.key==='ArrowRight'){e.preventDefault();stop();step(1);}if(e.key==='ArrowLeft'){e.preventDefault();stop();step(-1);}if(e.code==='Space'){e.preventDefault();$('play').click();}});
 document.addEventListener('visibilitychange',()=>{if(document.hidden)stop();});
 function closeMobilePanel(){if(matchMedia('(max-width:760px)').matches){$('layersPanel').classList.remove('open');$('panelToggle').setAttribute('aria-expanded','false');}closeOptions();}
@@ -239,13 +274,18 @@ import matplotlib.pyplot as plt
 
 with np.load("${file}", allow_pickle=False) as d:
     field = d["field"]  # Float32, displayed units
-    lat, lon = d["latitude"], d["longitude"]
     meta = json.loads(d["metadata_json"].tobytes())
+    native = meta["geometry_mode"] == "native"
+    x = d["column"] if native else d["longitude"]
+    y = d["row"] if native else d["latitude"]
 
-plt.pcolormesh(lon, lat, field, shading="nearest")
+plt.pcolormesh(x, y, field, shading="nearest")
+if native:
+    plt.gca().invert_yaxis()  # stored row 0 at the top
 plt.colorbar(label=meta["units"])
 plt.title(meta["variable"] + " · " + meta["valid_time"])
-plt.xlabel("Longitude"); plt.ylabel("Latitude")
+plt.xlabel("Grid column" if native else "Longitude")
+plt.ylabel("Grid row" if native else "Latitude")
 plt.show()
 # Wind archives also contain native u and v (m/s).
 # Preview values are highly compressed, not reference data.`;}
@@ -266,5 +306,5 @@ async function exportCurrent(){
 $('exportField').onclick=exportCurrent;$('pythonDownload').onclick=exportCurrent;
 updateLegend();
 // Read-only diagnostics for reproducible local checks; no synthetic weather.
-window.avencMet={model,map,get state(){return {field,custom:custom?.key,index,frames:frames.length,ready:Boolean(current)&&!loading,loading,playing,validTime:current?.ms};}};
+window.avencMet={model,map,get state(){return {field,custom:custom?.key,index,frames:frames.length,ready:Boolean(current)&&!loading,loading,playing,validTime:current?.ms,native:Boolean(model.geometry?.native)};}};
 start();

@@ -108,3 +108,13 @@ export function lumaStorageCode(raw,nativeBits,storedBits){
   if(shift<0)return Math.floor(raw/2**(-shift));
   return raw*2**shift+Math.floor(raw/2**(nativeBits-shift));
 }
+
+// Unknown projections/scanning are still viewable as the stored row-major raster.
+// Do not infer geographic coordinates from image dimensions or placeholder axes.
+export function streamGeometry(group){
+  const nx=Number(group.options.crop_width),ny=Number(group.options.crop_height);
+  if(!Number.isSafeInteger(nx)||!Number.isSafeInteger(ny)||nx<1||ny<1)throw new Error('Invalid native grid dimensions');
+  try{const axes=gribAxes(group.options.template_b64);if(axes)return {...makeGeometry(axes.lat,axes.lon,nx,ny),native:false};}catch{/* Native raster fallback; no geographic approximation. */}
+  return {nx,ny,native:true,lat0:0,lon0:0,dx:1,dy:-1,cyclic:false};
+}
+export function compatibleGeometry(a,b){return a.native===b.native&&['nx','ny','lat0','lon0','dx','dy'].every(k=>Math.abs(a[k]-b[k])<1e-6);}

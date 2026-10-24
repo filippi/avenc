@@ -71,7 +71,7 @@ The new reader in `js/avenc_range_model.js`:
    It does not reconstruct values from RGB or silently downconvert bit depth.
 5. Uses GRIB2 template 3.0 scan flags/increments for regular grid geometry. This
    handles the IFS grid starting at 180 E and wrapping to 179.75 E correctly.
-   Native coordinates remain supported when no regular-GRIB geometry is present.
+   Other definitions fall back to native row/column indices, without geographic positioning.
 6. Keeps at most six Float32 grids, two decoded VideoFrames, and a 32 MiB
    compressed GOP cache. Metadata/index memory is additional. A single movie
    index or selected GOP larger than 64 MiB is rejected. One next-time compressed
@@ -86,10 +86,12 @@ The point inspector retains the reconstructed physical value.
 
 ## Limits
 
-This first viewer targets regular latitude/longitude IFS GRIB-packed AVENC v2
-files with an ordinary, nonfragmented MP4 index. It rejects unsupported scanning
-orders or mismatched grid dimensions. It does not support reduced Gaussian grids,
-rotated/projected winds or heterogeneous spatial grids in one map.
+The viewer requires GRIB-packed AVENC v2 files with an ordinary, nonfragmented
+MP4 index. Recognized regular latitude/longitude grids use a geographic map;
+other definitions or scanning modes use the stored raster with row/column
+axes. It does not reproject rotated, projected or Gaussian grids, infer
+geographic wind directions, or overlay heterogeneous grids. Selecting another
+stream can change the active grid and reset the view to its extent.
 
 Codec support is browser/device dependent. FFV1 is generally not available in
 WebCodecs, and some 12/16-bit profiles are unsupported. The default SVT browser file uses AV1 10-bit 4:2:0 for every field, including
@@ -230,7 +232,7 @@ Git-ignored; the JSON only references files deployed separately on the host.
 **NPZ** downloads the already-decoded current field, with no new field request.
 It is a standard Deflate-compressed ZIP of numeric NumPy `.npy` arrays:
 
-- `field`: Float32, `(latitude, longitude)`, in the displayed units.
+- `field`: Float32, `(latitude, longitude)` or `(row, column)`, in the displayed units.
 - `latitude`, `longitude`: Float64 native coordinate axes in degrees, with
   longitude wrapped to `[-180, 180)`, without changing data column order.
 - `u`, `v`: for derived wind-speed views only, native Float32 components in m/s.
@@ -263,3 +265,37 @@ Deployment: copy static web assets while excluding the site's `datasets/`
 directory. That directory contains the operator-managed MP4 files and
 `datasets/dataset.json`; retain it across deployments. JSON URLs resolve
 against the page, so deployed entries normally use `./datasets/name.mp4`.
+
+## Native-grid fallback
+
+When the GRIB grid definition cannot be safely interpreted as regular
+latitude/longitude (including unsupported templates, scanning modes or missing
+coordinates), ECFlix shows the stored raster on a plain background. This is
+a presentation fallback, not reprojection or a new geographic grid decoder.
+The notice explicitly says geographical positioning is unavailable. Row 0
+is at the top; columns run from left to right in reconstructed array order.
+Pan, zoom, fit-to-grid, scalar layers, pressure levels, timeline/playback,
+point readings and NPZ downloads remain available. Wind particles/arrows,
+the geographic scale and basemap controls are disabled. Geographic views
+return automatically when selecting a recognized grid. Codec support is
+still required; this does not add a browser decoder for FFV1.
+
+Native NPZ archives contain `row` and `column` arrays instead of latitude
+and longitude, with `geometry_mode: "native"` and dimensions `[row, column]`
+in metadata. They never invent geographic positions. Python examples choose
+the appropriate axes and put row 0 at the top. Native share links use
+`grid_row` and `grid_column` rather than geographical `lat`/`lon` parameters.
+The renderer retains the existing scientific reconstruction and bitmap path.
+
+The previously failing 3600 × 1801 server file was checked using bounded
+MP4 byte ranges: native display/probe, time stepping, NPZ download, mobile
+fit and shared-view restoration passed. A NumPy inspection confirmed native
+row/column arrays and no latitude/longitude arrays in the export. The normal
+geographic fixture still matches native decoder samples exactly.
+
+Optional native integration test (requires a range-capable unsupported-grid
+fixture URL and the two local browser preview files): set
+`AVENC_NATIVE_FIXTURE_URL` and run `node www/tests/met_native.cjs`. It routes
+just the fixture's byte-range requests through the test browser, exercises
+native/geographic switching, and stores screenshots/NPZ in the system temp
+directory. No fixture is bundled or downloaded in full.
