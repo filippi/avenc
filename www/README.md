@@ -91,3 +91,11 @@ and the same playback/download controls. It reuses the decoded field rather
 than fetching it again. Native-grid views remain 2D. Globe backgrounds use
 locally served public-domain Natural Earth land geometry; see
 [data/NATURAL_EARTH.md](data/NATURAL_EARTH.md).
+
+Globe wind trails are seeded in the visible viewport and become denser on zoom,
+with bounded particle counts (4,200 desktop / 1,200 mobile). Trails reseed on
+rotation and zoom, respect missing winds and reduced-motion preferences, and
+use an illustrative visual clock rather than forecast-time trajectories. Close
+views use modest supersampling within a six-million-pixel canvas budget. This
+sharpens rendering, not the scientific grid: source cells remain nearest-sampled
+at their native resolution, and zooming does not fetch additional weather data.

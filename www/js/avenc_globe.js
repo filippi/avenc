@@ -78,26 +78,37 @@ export class AvencGlobe{
   this.setView(this.lat+dy/this.radius*65,this.lon-dx/this.radius*65,this.zoom);
  }
  resize(){
-  if(!this.active)return;const r=this.container.getBoundingClientRect();this.width=r.width;this.height=r.height;this.dpr=Math.min(devicePixelRatio||1,2);
-  for(const c of [this.canvas,this.arrows,this.flow]){c.width=Math.max(1,Math.round(this.width*this.dpr));c.height=Math.max(1,Math.round(this.height*this.dpr));}
+  if(!this.active)return;const r=this.container.getBoundingClientRect();this.width=r.width;this.height=r.height;this.updateResolution();
   const phone=this.width<=760,left=phone?8:110,right=phone?8:115,top=phone?185:140,bottom=phone?105:105;
-  this.cx=(this.width+left-right)/2;this.cy=(this.height+top-bottom)/2;this.baseRadius=Math.max(40,Math.min(this.width-left-right,this.height-top-bottom)*.46);this.radius=this.baseRadius*this.zoom;this.draw();
+  this.cx=(this.width+left-right)/2;this.cy=(this.height+top-bottom)/2;this.baseRadius=Math.max(40,Math.min(this.width-left-right,this.height-top-bottom)*.46);this.radius=this.baseRadius*this.zoom;this.draw();this.resetParticles();
+ }
+ // Supersample close views within a six-million-pixel budget. Scientific texels stay native.
+ updateResolution(){
+  const wanted=Math.min(2,Math.max(devicePixelRatio||1,1+Math.min(1,Math.max(0,this.zoom-1))*.5));
+  this.dpr=Math.min(wanted,Math.sqrt(6000000/Math.max(1,this.width*this.height)));
+  for(const c of [this.canvas,this.arrows,this.flow]){const w=Math.max(1,Math.round(this.width*this.dpr)),h=Math.max(1,Math.round(this.height*this.dpr));if(c.width!==w||c.height!==h){c.width=w;c.height=h;}}
+ }
+ resetParticles(){
+  if(!this.current?.v||!this.width){this.particles=[];return;}
+  const area=Math.min(this.width*this.height,Math.PI*this.radius*this.radius),density=1+Math.min(1.5,Math.max(0,this.zoom-1))*.35;
+  const count=Math.min(this.width<760?1200:4200,Math.max(250,Math.round(area*density/280)));
+  this.particles=Array.from({length:count},()=>this.seed());
  }
  setActive(active){this.active=active;if(active)this.resize();else this.clearFlow();}
- setView(lat,lon,zoom=1){this.lat=Math.max(-89,Math.min(89,lat));this.lon=wrapLongitude(lon);this.zoom=Math.max(.65,Math.min(5,zoom));this.radius=(this.baseRadius||200)*this.zoom;this.clearFlow();if(this.active)this.draw();}
+ setView(lat,lon,zoom=1){this.lat=Math.max(-89,Math.min(89,lat));this.lon=wrapLongitude(lon);this.zoom=Math.max(.65,Math.min(5,zoom));this.radius=(this.baseRadius||200)*this.zoom;this.clearFlow();if(this.active){this.updateResolution();this.draw();this.resetParticles();}}
  zoomBy(factor){this.setView(this.lat,this.lon,this.zoom*factor);}
  pick(x,y){return pickGlobe((x-this.cx)/this.radius,-(y-this.cy)/this.radius,globeBasis(this.lat,this.lon));}
  screen(lat,lon){const p=projectGlobe(lat,lon,this.basis);return {x:this.cx+p.x*this.radius,y:this.cy-p.y*this.radius,z:p.z};}
  setField(current,geometry,config,colours,settings){
   const gl=this.gl;if(geometry.native)throw new Error('3D needs geographic coordinates.');if(Math.max(geometry.nx,geometry.ny)>gl.getParameter(gl.MAX_TEXTURE_SIZE))throw new Error('This grid exceeds this device’s 3D texture limit. Use 2D.');
-  this.current=current;this.geometry=geometry;this.config=config;this.settings=settings;
+  const reset=this.geometry!==geometry||!this.current?.v;this.current=current;this.geometry=geometry;this.config=config;this.settings=settings;
   for(const [i,a] of [[0,current?.u],[1,current?.v]])if(a&&a!==this.uploaded?.[i]){gl.activeTexture(gl.TEXTURE0+i);gl.bindTexture(gl.TEXTURE_2D,this.textures[i]);gl.texImage2D(gl.TEXTURE_2D,0,gl.R32F,geometry.nx,geometry.ny,0,gl.RED,gl.FLOAT,a);}
   this.uploaded=[current?.u,current?.v];gl.activeTexture(gl.TEXTURE2);gl.bindTexture(gl.TEXTURE_2D,this.textures[2]);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,256,1,0,gl.RGBA,gl.UNSIGNED_BYTE,new Uint8Array(colours.flatMap(c=>[...c,255])));
-  if(!this.particles)this.particles=Array.from({length:Math.min(850,this.width<760?360:850)},()=>this.seed());
+  if(reset||!this.particles?.length)this.resetParticles();
   if(!current?.v||!settings.flow)this.clearFlow();if(this.active)this.draw();
  }
  clear(){this.current=null;this.clearFlow();if(this.active)this.draw();}
- clearFlow(){this.flow.getContext('2d').clearRect(0,0,this.flow.width,this.flow.height);}
+ clearFlow(){const ctx=this.flow.getContext('2d');ctx.resetTransform();ctx.clearRect(0,0,this.flow.width,this.flow.height);}
  async loadEarth(){
   try{const response=await fetch(new URL('../data/ne_110m_land.geojson',import.meta.url));if(!response.ok)throw new Error('Coastline background unavailable');const data=await response.json();if(this.destroyed)return;const c=document.createElement('canvas');c.width=2048;c.height=1024;const ctx=c.getContext('2d');ctx.fillStyle='#0f293b';ctx.fillRect(0,0,c.width,c.height);ctx.fillStyle='#294956';ctx.strokeStyle='#9fb9bc';ctx.lineWidth=.65;
    for(const feature of data.features){const polys=feature.geometry.type==='Polygon'?[feature.geometry.coordinates]:feature.geometry.coordinates;for(const rings of polys){ctx.beginPath();for(const ring of rings){ring.forEach(([lon,lat],i)=>{const x=(lon+180)/360*c.width,y=(90-lat)/180*c.height;i?ctx.lineTo(x,y):ctx.moveTo(x,y);});ctx.closePath();}ctx.fill('evenodd');ctx.stroke();}}
@@ -115,11 +126,29 @@ export class AvencGlobe{
  drawArrows(){const ctx=this.arrows.getContext('2d');ctx.clearRect(0,0,this.arrows.width,this.arrows.height);if(!this.settings?.arrows||!this.current?.v)return;ctx.setTransform(this.dpr,0,0,this.dpr,0,0);ctx.strokeStyle='#f2fbffb8';ctx.lineWidth=.8;
   for(let lat=-75;lat<=75;lat+=12)for(let lon=-180;lon<180;lon+=12){const p=this.screen(lat,lon);if(p.z<.15)continue;const wind=this.wind(lat,lon);if(!wind)continue;const speed=Math.hypot(...wind);if(speed<.5)continue;const next=this.screen(lat+wind[1]/speed,lon+wind[0]/speed/Math.max(.1,Math.cos(lat*Math.PI/180))),a=Math.atan2(next.y-p.y,next.x-p.x),len=Math.min(13,6+speed*.12),dx=Math.cos(a)*len,dy=Math.sin(a)*len;ctx.beginPath();ctx.moveTo(p.x-dx/2,p.y-dy/2);ctx.lineTo(p.x+dx/2,p.y+dy/2);for(const t of [-.55,.55]){ctx.moveTo(p.x+dx/2,p.y+dy/2);ctx.lineTo(p.x+dx/2-Math.cos(a+t)*3,p.y+dy/2-Math.sin(a+t)*3);}ctx.stroke();}
  }
- seed(){const g=this.geometry,lat=g?.cyclic?Math.asin(Math.random()*2-1)*180/Math.PI:(g?.lat0||0)+Math.random()*(g?.ny||180)*(g?.dy||1),lon=g?.cyclic?Math.random()*360-180:(g?.lon0||0)+Math.random()*(g?.nx||360)*(g?.dx||1);return {lat:Math.max(-89,Math.min(89,lat)),lon,age:Math.random()*120};}
+ // Uniform screen-space seeding keeps trails in the visible view, including after zoom/rotation.
+ seed(){
+  const left=Math.max(0,this.cx-this.radius),top=Math.max(0,this.cy-this.radius),right=Math.min(this.width,this.cx+this.radius),bottom=Math.min(this.height,this.cy+this.radius);
+  for(let attempt=0;attempt<24;attempt++){
+   const ll=this.pick(left+Math.random()*(right-left),top+Math.random()*(bottom-top));
+   if(ll&&Math.abs(ll.lat)<89.5&&this.wind(ll.lat,ll.lng))return {lat:ll.lat,lon:ll.lng,age:Math.random()*100};
+  }
+  return {lat:this.lat,lon:this.lon,age:180};
+ }
+ visible(p){return p.z>.08&&p.x>=0&&p.x<=this.width&&p.y>=0&&p.y<=this.height;}
  tick(now){this.raf=requestAnimationFrame(this.tick);if(!this.active||document.hidden)return;if(now-(this.last||0)<33)return;const dt=Math.min(.06,(now-(this.last||now))/1000);this.last=now;
   if(!this.current?.v||!this.settings?.flow||matchMedia('(prefers-reduced-motion: reduce)').matches)return;
-  const ctx=this.flow.getContext('2d');ctx.setTransform(this.dpr,0,0,this.dpr,0,0);ctx.globalCompositeOperation='destination-in';ctx.fillStyle='rgba(0,0,0,.9)';ctx.fillRect(0,0,this.width,this.height);ctx.globalCompositeOperation='source-over';ctx.strokeStyle='#efffffad';ctx.lineWidth=.8;ctx.beginPath();
-  for(const p of this.particles||[]){const v=this.wind(p.lat,p.lon);if(!v||p.age++>140){Object.assign(p,this.seed(),{age:0});continue;}const old=this.screen(p.lat,p.lon),scale=dt*3600/6371000*180/Math.PI;p.lat=Math.max(-89.5,Math.min(89.5,p.lat+v[1]*scale));p.lon=wrapLongitude(p.lon+v[0]*scale/Math.max(.05,Math.cos(p.lat*Math.PI/180)));const next=this.screen(p.lat,p.lon);if(old.z>.05&&next.z>.05&&Math.hypot(next.x-old.x,next.y-old.y)<30){ctx.moveTo(old.x,old.y);ctx.lineTo(next.x,next.y);}}
+  const ctx=this.flow.getContext('2d');ctx.setTransform(this.dpr,0,0,this.dpr,0,0);ctx.globalCompositeOperation='destination-in';ctx.fillStyle='rgba(0,0,0,.96)';ctx.fillRect(0,0,this.width,this.height);ctx.globalCompositeOperation='source-over';ctx.strokeStyle='#efffffd9';ctx.lineWidth=this.width<760?1:1.05;ctx.lineCap='round';ctx.beginPath();
+  // A zoom-dependent visual clock preserves readable screen motion, not elapsed forecast time.
+  const scale=dt*3/Math.max(150,this.radius)*180/Math.PI;
+  for(const p of this.particles||[]){
+   const old=this.screen(p.lat,p.lon),v=this.wind(p.lat,p.lon);
+   if(!v||!this.visible(old)||p.age++>180){Object.assign(p,this.seed(),{age:0});continue;}
+   const lat=Math.max(-89.5,Math.min(89.5,p.lat+v[1]*scale)),lon=wrapLongitude(p.lon+v[0]*scale/Math.max(.05,Math.cos(p.lat*Math.PI/180)));
+   const next=this.screen(lat,lon);
+   if(!this.visible(next)||!this.wind(lat,lon)||Math.hypot(next.x-old.x,next.y-old.y)>30){Object.assign(p,this.seed(),{age:0});continue;}
+   p.lat=lat;p.lon=lon;ctx.moveTo(old.x,old.y);ctx.lineTo(next.x,next.y);
+  }
   ctx.stroke();
  }
  destroy(){this.destroyed=true;this.active=false;cancelAnimationFrame(this.raf);this.resizeObserver.disconnect();for(const t of this.textures)this.gl.deleteTexture(t);this.gl.deleteBuffer(this.buffer);this.gl.deleteProgram(this.program);this.canvas.remove();this.arrows.remove();this.flow.remove();}
