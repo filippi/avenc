@@ -62,3 +62,11 @@ The bundled JPEG library is based in part on the work of the Independent JPEG
 Group. No endorsement by its authors is implied. Only the permissively licensed
 liblzma library is bundled, not XZ command-line/build tools. Zstandard is used
 under its BSD-3-Clause licensing option.
+
+## ECFlix globe land background
+
+`www/data/ne_110m_land.geojson` is Natural Earth 1:110m land geometry from
+https://github.com/nvkelso/natural-earth-vector. Natural Earth data are public
+domain (https://www.naturalearthdata.com/about/terms-of-use/). Source/provenance
+are recorded in `www/data/NATURAL_EARTH.md`; the globe credits Natural Earth.
+This is static cartographic background data, not a forecast or satellite image.

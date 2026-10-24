@@ -331,3 +331,62 @@ local browser fixtures and Playwright, `node www/tests/met_download.cjs` for
 the panel, copy actions and mobile layout. The generated xarray example was
 executed against the local range-served forecast using the current backend;
 it loaded and plotted the expected 721 × 1440 wind-speed field.
+
+## 3D / 2D globe toggle
+
+The header's **3D** button opens a WebGL 2 globe and becomes **2D** to return
+to the map. The active field/time, dataset/level controls, point inspector,
+Download panel and HTTP range reader are shared between both views. Toggling,
+rotating and zooming use the decoded arrays and do not request MP4 fields.
+A new forecast frame follows the same range/GOP path as 2D playback.
+
+The globe uploads the reconstructed Float32 U/scalar field and optional V as
+R32F textures. A shader picks nearest native cells using the authoritative
+regular-grid scan geometry, including cyclic longitude and either latitude
+orientation. The colour lookup table, display transform/range, opacity and
+missing values match the existing view. Values shown by probes and exported
+arrays still come from the CPU reconstruction, not rendered RGB. Globe lighting
+is illustrative shape shading, not a physical day/night or radiation model.
+
+Drag to rotate; scroll, pinch, or use +/− to zoom. A focused globe also accepts
+arrow keys and +/−. Click the sphere for its grid-cell reading. Wind arrows are
+projected from east/north components onto the visible sphere. Animated wind
+trails advect particles on the geographic surface using the current snapshot
+and accelerated visual time; they are illustrative flow cues, not forecast
+parcel trajectories. Reduced-motion preferences disable animated trails.
+Camera changes clear old screen-space trails. Shared URLs retain `view=3d`,
+longitude/latitude centre and `globe_zoom`.
+
+A small, locally served Natural Earth 1:110m land GeoJSON supplies coastlines
+and land shading. It is rasterized in the browser; no globe tile archive is
+fetched. See `data/NATURAL_EARTH.md` for public-domain attribution and provenance.
+The 2D map keeps its existing OpenStreetMap attribution and visible-tile path.
+
+Only recognized geographic grids can use the globe. Selecting an unsupported
+projection or native raster returns to 2D and disables the 3D button. Missing
+WebGL 2, graphics-context loss or a grid exceeding the GPU texture-size limit
+retain/restore the 2D map. CPU field caches are unchanged; the GPU additionally
+holds up to two full Float32 field textures, a small colour ramp and a land
+background. Rendering resolution is capped at device pixel ratio 2. These
+requirements and performance depend on device/browser; no WebGL library or
+new video codec is bundled.
+
+Validation:
+
+```bash
+node www/tests/met_globe_math.mjs
+# Optional Chrome/Playwright checks, with the local preview fixtures:
+node www/tests/met_globe.cjs
+node www/tests/met_globe_shader.cjs
+# Optional: set AVENC_NATIVE_FIXTURE_URL to a range-capable native-grid file:
+node www/tests/met_globe_extra.cjs
+```
+
+The globe was exercised with both the 1440 × 721 and 3600 × 1801 forecast
+files. View switching added zero MP4 bytes. Real-field playback, picking,
+rotation/zoom, mobile layout, spherical wind trails, Download panel, restored
+3D shared views and native-grid fallback were checked. GPU pixel tests matched
+CPU nearest-cell results at ordinary locations, the poles and the dateline,
+and verified the U/V wind magnitude. A mocked device without WebGL retained
+its working 2D view. Headless tests enable software WebGL for reproducibility;
+normal browser use does not require those launch flags.

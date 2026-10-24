@@ -84,3 +84,10 @@ Unsupported geographic grid definitions automatically open in a **native-grid**
 view with row/column axes and no basemap or wind directions. Playback, probes
 and NPZ exports remain available; native exports use `row`/`column` coordinates.
 This fallback displays the stored raster without reprojection.
+
+The top-bar **3D / 2D** button switches recognized geographic fields to a WebGL
+globe, with drag/scroll/pinch navigation, point inspection, wind arrows/trails
+and the same playback/download controls. It reuses the decoded field rather
+than fetching it again. Native-grid views remain 2D. Globe backgrounds use
+locally served public-domain Natural Earth land geometry; see
+[data/NATURAL_EARTH.md](data/NATURAL_EARTH.md).

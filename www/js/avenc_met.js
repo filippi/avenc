@@ -4,7 +4,7 @@ import { fieldArchive } from './avenc_npz.js';
 import { AvencRangeModel } from './avenc_range_model.js';
 import { buildInventory, pairWind, gridIndex, displayConfiguration, formatReading, compatibleGeometry } from './avenc_met_core.js';
 const $=id=>document.getElementById(id),query=new URLSearchParams(location.search);
-let datasetCatalogue=null,exportBusy=false;
+let datasetCatalogue=null,exportBusy=false,globe=null,globeMode=false,viewBusy=false,initialViewApplied=false;
 let catalogue=null,catalogueError='';
 const cataloguePromise=fetch(new URL('../data/ifs_variables.json',import.meta.url)).then(async r=>{if(!r.ok)throw new Error('Variable catalogue unavailable');const c=await r.json();if(c.schema!=='ecflix.variables.v1')throw new Error('Invalid variable catalogue');return c;}).catch(e=>{catalogueError=e.message;return null;});
 const model=new AvencRangeModel(),map=L.map('map',{zoomControl:false,worldCopyJump:false,minZoom:2,maxZoom:10}).setView([46,5],4);
@@ -13,7 +13,7 @@ map.createPane('weather');map.getPane('weather').style.zIndex=420;
 let base,labels;
 function basemap(kind){
   if(base)map.removeLayer(base);if(labels)map.removeLayer(labels);base=labels=null;
-  if(kind==='none'||model.geometry?.native)return;
+  if(kind==='none'||model.geometry?.native||globeMode)return;
   const attribution='© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
   map.getPane('tilePane').classList.toggle('dark-base',kind==='dark');
   base=L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution,maxZoom:19}).addTo(map);
@@ -39,6 +39,7 @@ const Weather=L.Layer.extend({
   hide(){this.flow.style.opacity='0';this.canvas.style.opacity='0';},show(){this.flow.style.opacity='1';this.canvas.style.opacity='1';},
   onRemove(m){cancelAnimationFrame(this.raf);m.off('moveend resize zoomend',this.render);m.off('movestart',this.hide,this);m.off('moveend',this.show,this);this.canvas.remove();this.flow.remove();},
   render(){
+    if(globeMode){updateGlobe();return;}
     const sz=map.getSize();this.width=Math.ceil(sz.x/2);this.height=Math.ceil(sz.y/2);
     const resized=this.canvas.width!==this.width||this.canvas.height!==this.height;
     for(const c of [this.canvas,this.flow]){if(resized){c.width=this.width;c.height=this.height;}c.style.width=sz.x+'px';c.style.height=sz.y+'px';L.DomUtil.setPosition(c,map.containerPointToLayerPoint([0,0]));}
@@ -65,7 +66,7 @@ const Weather=L.Layer.extend({
     }
   },
   animate(now){
-    this.raf=requestAnimationFrame(this.animate);
+    this.raf=requestAnimationFrame(this.animate);if(globeMode)return;
     if(now-this.last<32)return;const dt=Math.min(.06,(now-this.last)/1000);this.last=now;
     const ctx=this.flow.getContext('2d');
     if(model.geometry?.native||!current?.v||!$('flow').checked||matchMedia('(prefers-reduced-motion: reduce)').matches){ctx.clearRect(0,0,this.width,this.height);return;}
@@ -84,6 +85,7 @@ function fitNative(){
   map.fitBounds([[.5,-.5],[-g.ny+.5,g.nx-.5]],{animate:false,paddingTopLeft:[matchMedia('(max-width:760px)').matches?40:145,225],paddingBottomRight:[105,135]});
 }
 function configureGeometry(g){
+  if(g.native&&globeMode)setGlobeMode(false);
   const key=JSON.stringify([g.native,g.nx,g.ny,g.lat0,g.lon0,g.dx,g.dy]);if(key===viewGeometryKey)return;viewGeometryKey=key;
   current=null;point=null;$('probe').hidden=true;if(marker){map.removeLayer(marker);marker=null;}
   basemap('none');model.geometry=g;map.options.zoomSnap=g.native?0:1;map.options.zoomDelta=g.native ? 0.5 : 1;map.options.crs=g.native?L.CRS.Simple:L.CRS.EPSG3857;map.setMinZoom(g.native?-8:2);
@@ -97,7 +99,7 @@ function configureGeometry(g){
     if(query.has('grid_row')&&query.has('grid_column')){const row=Number(query.get('grid_row')),col=Number(query.get('grid_column')),zoom=Number(query.get('zoom'));if(Number.isFinite(row)&&Number.isFinite(col)&&Number.isFinite(zoom))map.setView([-row,col],Math.max(-8,Math.min(10,zoom)),{reset:true});}
   }else{map.setView([46,5],4,{reset:true});scaleControl.addTo(map);basemap($('basemap').value);}
   $('resolution').textContent=g.native?`NATIVE GRID · ${g.nx} × ${g.ny}`:`${Math.abs(g.dx).toFixed(2)}° GRID · ${g.nx} × ${g.ny}`;
-  updateNativeAxes();
+  updateNativeAxes();updateViewButton();
 }
 function updateNativeAxes(){
   const g=model.geometry;if(!g?.native)return;
@@ -155,7 +157,7 @@ function setHeadings(){
 async function render(){
   if(!frames.length)return;const ticket=++sequence;controller?.abort();controller=new AbortController();const signal=controller.signal;
   const f=frames[index],viewKey=custom?.key||field+'|'+$('level').value;
-  loading=true;$('exportField').disabled=true;clearTimeout(noticeTimer);
+  loading=true;updateViewButton();$('exportField').disabled=true;clearTimeout(noticeTimer);
   // Keep the previous frame and its timestamp visible during same-layer playback.
   // A new layer is cleared so an old field cannot appear under its new legend.
   if(current?.viewKey!==viewKey){current=null;weather.render();$('probe').hidden=true;}
@@ -174,7 +176,7 @@ async function render(){
     $('lead').textContent=Number.isFinite(init)?`+${Math.round((f.ms-init)/3600000)} h`:'';
     $('runInfo').textContent=Number.isFinite(init)?'Initialized '+date(init):'IFS operational forecast';
     if(field==='rain'&&!custom)$('runInfo').textContent+=' · accumulation '+r.stepRange+' h';
-    $('exportField').disabled=exportBusy;weather.render();if(point)probe(point);$('message').classList.add('ready');
+    $('exportField').disabled=exportBusy;updateViewButton();weather.render();if(point)probe(point);$('message').classList.add('ready');
     // One next-time compressed GOP only. No bulk prefetch or whole-file download.
     const next=frames[index+1];if(next)setTimeout(async()=>{try{signal.throwIfAborted();await model.packets(next.group,next.frame,signal);if(next.v)await model.packets(next.v.group,next.v.frame,signal);}catch{}},150);
     if(playing)timer=setTimeout(()=>step(1),1000);
@@ -191,6 +193,7 @@ function probe(ll){
   const number=document.createElement('span'),unit=document.createElement('span');number.textContent=formatReading(value,activeConfig);unit.className='reading-unit';unit.textContent=Number.isFinite(value)?activeConfig.unit:'';$('probeValue').replaceChildren(number,unit);
   const direction=current.v&&!model.geometry.native?((Math.atan2(-raw,-other)*180/Math.PI+360)%360):null;
   $('probeDetail').textContent=current.v&&!model.geometry.native&&Number.isFinite(value)?`From ${direction.toFixed(0)}° · U ${raw.toFixed(2)}, V ${other.toFixed(2)} m/s`:(model.geometry.native?'Stored raster cell · ':'Nearest native grid point · ')+date(current.ms);
+  if(globe){globe.pickPoint=ll;if(globeMode)globe.draw();}
   $('probe').hidden=false;if(marker)map.removeLayer(marker);marker=L.circleMarker(ll,{radius:5,weight:2,color:'white',fillColor:'#142c3b',fillOpacity:1}).addTo(map);
 }
 async function open(){
@@ -234,6 +237,7 @@ async function open(){
     if(!custom&&document.querySelector('[data-field=wind]').disabled)throw new Error('No browser-decodable field found. Use AV1/HEVC profiles with supported bit depths, or the native AVENC tools.');
     if(custom)$('allFields').value=custom.key;
     setHeadings();if(updateFrames(query.get('time')?Number(query.get('time')):undefined))await render();
+    if(!initialViewApplied&&current){initialViewApplied=true;if(query.get('view')==='3d'&&!model.geometry.native){await setGlobeMode(true);if(globeMode)globe.setView(Number(query.get('lat')||46),Number(query.get('lon')||5),Number(query.get('globe_zoom')||1));}}
   }catch(e){if(e.name!=='AbortError'){loading=false;tell(e.message,true);}}finally{if(!signal.aborted){$('connect').disabled=false;$('datasetSelect').disabled=false;syncDatasetSelection();}}
 }
 for(const b of document.querySelectorAll('[data-field]'))b.onclick=()=>changeLayer(b.dataset.field);
@@ -242,12 +246,12 @@ $('level').onchange=()=>{if(custom){const v=views.find(v=>v.name===custom.name&&
 $('allFields').onchange=()=>{if(!$('allFields').value)return;closeMobilePanel();stop();const t=frames[index]?.ms;custom=views.find(v=>v.key===$('allFields').value);setHeadings();if(updateFrames(t))render();};
 $('time').oninput=()=>{stop();index=Number($('time').value);render();};$('previous').onclick=()=>{stop();step(-1);};$('next').onclick=()=>{stop();step(1);};
 $('play').onclick=()=>{if(playing)stop();else if(frames.length){playing=true;$('play').textContent='Ⅱ';$('play').setAttribute('aria-label','Pause forecast');step(1);}};
-$('opacity').oninput=()=>weather.render();$('arrows').onchange=()=>weather.render();$('flow').onchange=()=>weather.render();$('basemap').onchange=()=>basemap($('basemap').value);
-$('home').onclick=()=>model.geometry?.native?fitNative():map.setView([46,5],4);$('world').onclick=()=>model.geometry?.native?fitNative():map.setView([20,0],2);
-$('closeProbe').onclick=()=>{point=null;$('probe').hidden=true;if(marker)map.removeLayer(marker);marker=null;};map.on('click',e=>probe(e.latlng));
+$('opacity').oninput=()=>weather.render();$('arrows').onchange=()=>weather.render();$('flow').onchange=()=>weather.render();$('basemap').onchange=()=>{basemap($('basemap').value);weather.render();};
+$('home').onclick=()=>globeMode?globe.setView(46,5,1):model.geometry?.native?fitNative():map.setView([46,5],4);$('world').onclick=()=>globeMode?globe.setView(0,0,.9):model.geometry?.native?fitNative():map.setView([20,0],2);
+$('closeProbe').onclick=()=>{if(globe){globe.pickPoint=null;if(globeMode)globe.draw();}point=null;$('probe').hidden=true;if(marker)map.removeLayer(marker);marker=null;};map.on('click',e=>probe(e.latlng));
 $('connect').onclick=open;$('dataset').onkeydown=e=>{if(e.key==='Enter')open();};
-$('share').onclick=async()=>{const u=new URL(location.href);u.searchParams.set('layer',field);u.searchParams.set('level',$('level').value);if(model.geometry.native){u.searchParams.delete('lat');u.searchParams.delete('lon');u.searchParams.set('grid_row',(-map.getCenter().lat).toFixed(3));u.searchParams.set('grid_column',map.getCenter().lng.toFixed(3));}else{u.searchParams.delete('grid_row');u.searchParams.delete('grid_column');u.searchParams.set('lat',map.getCenter().lat.toFixed(4));u.searchParams.set('lon',map.getCenter().lng.toFixed(4));}u.searchParams.set('zoom',map.getZoom());u.searchParams.delete('field');u.searchParams.set('dataset',$('dataset').value);if(frames[index])u.searchParams.set('time',frames[index].ms);if(custom)u.searchParams.set('field',custom.key);try{await navigator.clipboard.writeText(u.href);tell('View link copied');setTimeout(()=>$('message').classList.add('ready'),1800);}catch{tell('Copy this URL: '+u.href);}};
-document.addEventListener('keydown',e=>{if(/INPUT|SELECT|TEXTAREA|BUTTON/.test(e.target.tagName))return;if(e.key==='ArrowRight'){e.preventDefault();stop();step(1);}if(e.key==='ArrowLeft'){e.preventDefault();stop();step(-1);}if(e.code==='Space'){e.preventDefault();$('play').click();}});
+$('share').onclick=async()=>{const u=new URL(location.href);u.searchParams.set('view',globeMode?'3d':'2d');if(globeMode)u.searchParams.set('globe_zoom',globe.zoom.toFixed(3));else u.searchParams.delete('globe_zoom');u.searchParams.set('layer',field);u.searchParams.set('level',$('level').value);if(model.geometry.native){u.searchParams.delete('lat');u.searchParams.delete('lon');u.searchParams.set('grid_row',(-map.getCenter().lat).toFixed(3));u.searchParams.set('grid_column',map.getCenter().lng.toFixed(3));}else{u.searchParams.delete('grid_row');u.searchParams.delete('grid_column');u.searchParams.set('lat',(globeMode?globe.lat:map.getCenter().lat).toFixed(4));u.searchParams.set('lon',(globeMode?globe.lon:map.getCenter().lng).toFixed(4));}u.searchParams.set('zoom',map.getZoom());u.searchParams.delete('field');u.searchParams.set('dataset',$('dataset').value);if(frames[index])u.searchParams.set('time',frames[index].ms);if(custom)u.searchParams.set('field',custom.key);try{await navigator.clipboard.writeText(u.href);tell('View link copied');setTimeout(()=>$('message').classList.add('ready'),1800);}catch{tell('Copy this URL: '+u.href);}};
+document.addEventListener('keydown',e=>{if(/INPUT|SELECT|TEXTAREA|BUTTON|CANVAS/.test(e.target.tagName))return;if(e.key==='ArrowRight'){e.preventDefault();stop();step(1);}if(e.key==='ArrowLeft'){e.preventDefault();stop();step(-1);}if(e.code==='Space'){e.preventDefault();$('play').click();}});
 document.addEventListener('visibilitychange',()=>{if(document.hidden)stop();});
 function closeMobilePanel(){if(matchMedia('(max-width:760px)').matches){$('layersPanel').classList.remove('open');$('panelToggle').setAttribute('aria-expanded','false');}closeOptions();}
 $('about').onclick=()=>$('aboutDialog').showModal();$('closeAbout').onclick=()=>$('aboutDialog').close();
@@ -268,6 +272,33 @@ async function start(){
   }catch(e){console.warn(e.message);$('datasetSelect').replaceChildren();}
   $('dataset').value=query.get('dataset')||datasetCatalogue?.default||'./dataset/20261021.browser_svt10.mp4';syncDatasetSelection();await open();
 }
+function updateViewButton(){
+  $('toggle3d').textContent=globeMode?'2D':'3D';$('toggle3d').setAttribute('aria-pressed',String(globeMode));$('toggle3d').disabled=viewBusy||loading||!current||Boolean(model.geometry?.native);
+  $('toggle3d').title=model.geometry?.native?'3D requires recognized geographic coordinates':globeMode?'Switch to 2D map':'Switch to 3D globe';
+}
+function updateGlobe(){
+  if(!globe)return;if(!current){globe.clear();return;}
+  try{globe.setField(current,model.geometry,activeConfig,palette(activeConfig),{opacity:Number($('opacity').value)/100,flow:$('flow').checked,arrows:$('arrows').checked,basemap:$('basemap').value,rain:field==='rain'});}catch(e){if(viewBusy)throw e;setGlobeMode(false);tell(e.message,true);}
+}
+async function setGlobeMode(enabled){
+  if(enabled===globeMode||viewBusy)return;if(enabled&&(!current||model.geometry?.native))return;
+  viewBusy=true;updateViewButton();
+  try{
+    if(enabled){
+      if(!globe){const {AvencGlobe}=await import('./avenc_globe.js');if(!current||model.geometry?.native)return;globe=new AvencGlobe($('globe'),{onPick:ll=>{closeMobilePanel();probe(ll);},onError:message=>{const old=globe;setGlobeMode(false).finally(()=>{old?.destroy();if(globe===old)globe=null;});tell(message,true);}});}
+      const centre=map.getCenter();globeMode=true;document.body.classList.add('globe-view');$('globe').hidden=false;$('globeHint').hidden=false;$('globeCredit').hidden=false;basemap('none');
+      globe.setView(centre.lat,centre.lng,1);globe.setActive(true);updateGlobe();
+      if(point){globe.pickPoint=point;globe.draw();}
+    }else{
+      globeMode=false;globe?.setActive(false);document.body.classList.remove('globe-view');$('globe').hidden=true;$('globeHint').hidden=true;$('globeCredit').hidden=true;
+      if(!model.geometry?.native&&globe)map.setView([Math.max(-85,Math.min(85,globe.lat)),globe.lon],map.getZoom(),{animate:false});
+      basemap($('basemap').value);map.invalidateSize();weather.render();
+    }
+    const light=[...$('basemap').options].find(o=>o.value==='streets');light.textContent=globeMode?'Light globe':'Streets';
+  }catch(e){globeMode=false;document.body.classList.remove('globe-view');$('globe').hidden=true;$('globeHint').hidden=true;$('globeCredit').hidden=true;globe?.setActive(false);basemap($('basemap').value);tell(e.message,true);}
+  finally{viewBusy=false;updateViewButton();}
+}
+$('toggle3d').onclick=()=>setGlobeMode(!globeMode);$('globeZoomIn').onclick=()=>globe?.zoomBy(1.25);$('globeZoomOut').onclick=()=>globe?.zoomBy(1/1.25);
 function downloadName(){const name=(custom?.name||field).replace(/[^a-z0-9_-]/gi,'_');return `ecflix_${name}_${new Date(current.ms).toISOString().replace(/[-:]/g,'').slice(0,13)}.npz`;}
 function pythonExample(){const file=current?downloadName():'ecflix_field.npz';return `import json
 import numpy as np
@@ -318,5 +349,5 @@ async function exportCurrent(){
 $('pythonDownload').onclick=exportCurrent;
 updateLegend();
 // Read-only diagnostics for reproducible local checks; no synthetic weather.
-window.avencMet={model,map,get state(){return {field,custom:custom?.key,index,frames:frames.length,ready:Boolean(current)&&!loading,loading,playing,validTime:current?.ms,native:Boolean(model.geometry?.native)};}};
+window.avencMet={model,map,get state(){return {field,custom:custom?.key,index,frames:frames.length,ready:Boolean(current)&&!loading,loading,playing,validTime:current?.ms,native:Boolean(model.geometry?.native),view:globeMode?'3d':'2d',globe:globeMode?{lat:globe.lat,lon:globe.lon,zoom:globe.zoom}:null};}};
 start();
