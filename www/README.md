@@ -69,8 +69,9 @@ MP4 host needs HTTP Range and cross-origin CORS when hosted elsewhere. This
 manifest is static; files are not discovered automatically by the browser.
 
 The collapsible icon rail includes atmospheric levels, **More** for all
-variables/settings, **NPZ** for the displayed native grid and **Python** for a
-copyable loading/plotting example. A wind archive includes speed plus U/V,
+variables/settings, and one **Download** button opening three workflows: a
+whole-variable HTTP-to-GRIB command, exact-field xarray access, and a NumPy
+archive with a loading/plotting example. A wind archive includes speed plus U/V,
 latitude/longitude axes and UTF-8 JSON metadata, with no pickle objects.
 `field` uses the displayed units; the source URL, valid time, original GRIB
 record and display conversion are recorded. Missing values remain NaN. This

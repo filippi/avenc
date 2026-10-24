@@ -229,7 +229,8 @@ against the web page. Only the selected MP4 is opened. Direct `?dataset=...`
 links continue to work and add a temporary Custom option. MP4 data files remain
 Git-ignored; the JSON only references files deployed separately on the host.
 
-**NPZ** downloads the already-decoded current field, with no new field request.
+**Download → This field → NumPy** downloads the already-decoded current field,
+with no new field request.
 It is a standard Deflate-compressed ZIP of numeric NumPy `.npy` arrays:
 
 - `field`: Float32, `(latitude, longitude)` or `(row, column)`, in the displayed units.
@@ -243,7 +244,7 @@ Missing cells remain NaN. No pickle is required (`allow_pickle=False`). Export
 pauses playback and snapshots the displayed grid before asynchronous ZIP
 compression. It materializes the full native field, not the viewport; large
 exports require extra browser memory for arrays, NPY copies and ZIP buffers.
-This is not an original-data or accuracy-preserving export. The **Python**
+This is not an original-data or accuracy-preserving export. The **Download**
 dialog provides a complete NumPy/Matplotlib loading example.
 
 Focused checks:
@@ -299,3 +300,34 @@ fixture URL and the two local browser preview files): set
 just the fixture's byte-range requests through the test browser, exercises
 native/geographic switching, and stores screenshots/NPZ in the system temp
 directory. No fixture is bundled or downloaded in full.
+
+## One Download panel, three access workflows
+
+The rail has one **Download** button. Its panel links to AVENC's project page
+and source repository and offers, in order:
+
+1. **Whole variable → GRIB:** one copyable `avenc2grib --group ... URL out.grib`
+   command. The URL is absolute and the selection includes every available
+   level/time for the selected variable (both components for derived wind).
+   Known original short-name aliases select all related streams; unresolved
+   aliases use explicit stream selectors to avoid selecting unrelated unknown
+   variables. The command has no frame restriction and no trailing newline.
+2. **This field → xarray:** an `engine="avenc"` example selects each exact
+   stream by its `stream_id` attribute and the displayed frame by integer
+   position. Loading happens while the dataset is open. Wind speed is derived
+   from the selected U/V pair; display factor/offset and units match the UI.
+   Native views replace geographic-looking coordinates with row/column indices.
+3. **This field → NumPy:** the existing Float32 NPZ download and a collapsible
+   NumPy/Matplotlib loading/plotting example. No additional field fetch is needed.
+
+Python code blocks are expandable to keep all three options easy to find on
+phones. Each example has its own copy button; only the NumPy option initiates
+a browser download. Native CLI/Python examples require a compatible AVENC
+installation and FFmpeg. The highly compressed-preview notice applies to all
+three workflows. No original values are restored by changing the access method.
+
+Run `node www/tests/met_access.mjs` for generated-code checks and, with the
+local browser fixtures and Playwright, `node www/tests/met_download.cjs` for
+the panel, copy actions and mobile layout. The generated xarray example was
+executed against the local range-served forecast using the current backend;
+it loaded and plotted the expected 721 × 1440 wind-speed field.

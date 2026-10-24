@@ -1,0 +1,10 @@
+import assert from 'node:assert/strict';
+import {readFile} from 'node:fs/promises';
+const source=await readFile(new URL('../js/avenc_access.js',import.meta.url),'utf8');
+const {accessExamples,shellQuote}=await import('data:text/javascript;base64,'+Buffer.from(source).toString('base64'));
+const url='https://example.org/datasets/forecast.mp4';
+const wind=accessExamples({url,variables:[{name:'u',stream:12,frame:49},{name:'v',stream:27,frame:51}],wholeGroups:[{short_name:'u',stream_index:12},{short_name:'u',stream_index:13},{short_name:'v',stream_index:27}],unit:'m/s'});
+assert.equal(wind.cli,"avenc2grib --group 'u,v' 'https://example.org/datasets/forecast.mp4' 'u_v.grib'");assert(!wind.cli.includes('\n'));assert(!wind.cli.includes('frame-start'));assert(wind.python.includes('== 12'));assert(wind.python.includes('== 27'));assert(wind.python.includes(': 49'));assert(wind.python.includes(': 51'));assert(wind.python.includes('np.hypot(a0, a1)'));
+const scalar=accessExamples({url,variables:[{name:'nsss',stream:18,frame:5}],wholeGroups:[{short_name:'unknown',stream_index:18}],unit:'N·s/m²',native:true,factor:1,offset:0});assert.equal(scalar.selector,'stream:18');assert(scalar.python.includes('"row"'));assert(scalar.python.includes('yincrease=False'));
+const temperature=accessExamples({url,variables:[{name:'2t',stream:4,frame:0}],wholeGroups:[{short_name:'2t',stream_index:4}],unit:'°C',offset:-273.15});assert(temperature.python.includes('field = field * 1 + -273.15'));assert.equal(shellQuote("a'b"),"'a'\\''b'");assert.throws(()=>accessExamples({url:'file:///tmp/a',variables:[],wholeGroups:[]}));
+console.log('PASS: whole-variable CLI grouping, exact per-stream frames, derived wind, unknown aliases, native axes, display conversion and safe shell quoting.');

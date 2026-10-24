@@ -1,4 +1,5 @@
 import { zip } from 'https://cdn.jsdelivr.net/npm/fflate@0.8.2/esm/browser.js';
+import { accessExamples } from './avenc_access.js';
 import { fieldArchive } from './avenc_npz.js';
 import { AvencRangeModel } from './avenc_range_model.js';
 import { buildInventory, pairWind, gridIndex, displayConfiguration, formatReading, compatibleGeometry } from './avenc_met_core.js';
@@ -289,8 +290,19 @@ plt.ylabel("Grid row" if native else "Latitude")
 plt.show()
 # Wind archives also contain native u and v (m/s).
 # Preview values are highly compressed, not reference data.`;}
-$('pythonHelp').onclick=()=>{stop();$('pythonExample').textContent=pythonExample();$('exportStatus').textContent='';$('pythonDownload').disabled=!current||loading||exportBusy;$('pythonDialog').showModal();};$('closePython').onclick=()=>$('pythonDialog').close();
-$('copyPython').onclick=async()=>{try{await navigator.clipboard.writeText($('pythonExample').textContent);$('exportStatus').textContent='Python example copied.';}catch{$('exportStatus').textContent='Select and copy the example above.';}};
+function showDownload(){
+  if(!current||loading)return;stop();
+  const f=frames[index],selected=currentViews(),parts=[f,...(f.v?[f.v]:[])];
+  const variables=parts.map((p,i)=>({name:selected[i].name,stream:p.group.stream_index,frame:p.frame}));
+  const wholeViews=views.filter(v=>selected.some(p=>p.name===v.name&&p.rawCode===v.rawCode&&(p.name!=='unknown'||p.rawCode||v===p)));
+  const wholeGroups=[...new Set(wholeViews.flatMap(v=>v.frames.map(f=>f.group)))];
+  const examples=accessExamples({url:new URL($('dataset').value,location.href).href,variables,wholeGroups,unit:activeConfig.unit,factor:activeConfig.factor,offset:activeConfig.offset,native:model.geometry.native});
+  $('cliExample').textContent=examples.cli;$('xarrayExample').textContent=examples.python;$('pythonExample').textContent=pythonExample();
+  $('downloadContext').textContent=activeConfig.title+' · '+(custom?custom.kind+' '+custom.level:$('level').selectedOptions[0].textContent)+' · '+date(current.ms);
+  $('exportStatus').textContent='';$('pythonDownload').disabled=exportBusy;$('pythonDialog').showModal();
+}
+$('exportField').onclick=showDownload;$('closePython').onclick=()=>$('pythonDialog').close();
+for(const [button,code,label] of [['copyCli','cliExample','Command'],['copyXarray','xarrayExample','Python example'],['copyPython','pythonExample','NumPy example']])$(button).onclick=async()=>{try{await navigator.clipboard.writeText($(code).textContent);$('exportStatus').textContent=label+' copied.';}catch{$('exportStatus').textContent='Select and copy the example above.';}};
 async function exportCurrent(){
   if(!current||loading||exportBusy)return;exportBusy=true;stop();const snapshot=current,config={...activeConfig},geometry={...model.geometry},name=downloadName();
   const metadata={variable:custom?.name||(snapshot.v?'wind_speed':field),title:config.title,level:custom?.level||$('level').value,type_of_level:custom?.kind||($('level').value==='surface'?'surface':'isobaricInhPa'),valid_time:new Date(snapshot.ms).toISOString(),source_url:new URL($('dataset').value,location.href).href,grib_record:snapshot.record};
@@ -303,7 +315,7 @@ async function exportCurrent(){
     $('exportStatus').textContent='Downloaded '+name+' · '+bytes(archive.length);tell('NPZ downloaded · '+bytes(archive.length));setTimeout(()=>$('message').classList.add('ready'),2200);
   }catch(e){$('exportStatus').textContent=e.message;tell('Export failed: '+e.message,true);}finally{exportBusy=false;$('exportField').disabled=!current||loading;$('pythonDownload').disabled=!current||loading||exportBusy;}
 }
-$('exportField').onclick=exportCurrent;$('pythonDownload').onclick=exportCurrent;
+$('pythonDownload').onclick=exportCurrent;
 updateLegend();
 // Read-only diagnostics for reproducible local checks; no synthetic weather.
 window.avencMet={model,map,get state(){return {field,custom:custom?.key,index,frames:frames.length,ready:Boolean(current)&&!loading,loading,playing,validTime:current?.ms,native:Boolean(model.geometry?.native)};}};
