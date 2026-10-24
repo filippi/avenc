@@ -1,0 +1,1207 @@
+{
+  "schema": "ecflix.variables.v1",
+  "updated": "2026-10-24",
+  "context": {
+    "centre": "ecmf",
+    "grib_edition": 2,
+    "tables_version": 32
+  },
+  "sources": [
+    "IFS source GRIB headers decoded with ecCodes 2.44.0",
+    "https://github.com/ecmwf/eccodes/blob/develop/definitions/grib2/units.def",
+    "https://github.com/ecmwf/eccodes/blob/develop/definitions/grib2/localConcepts/ecmf/units.def"
+  ],
+  "notes": [
+    "Units are source-header units, not inferred from numeric ranges. Display conversions are explicit below.",
+    "Raw-code matches also require the statistical step type; this catalogue targets ECMWF IFS. Unknown entries remain explicitly labelled."
+  ],
+  "variables": {
+    "100u": {
+      "name": "100 metre U wind component",
+      "title": "100 metre U wind component",
+      "units": "m s**-1",
+      "match": {
+        "discipline": "0",
+        "parameterCategory": "2",
+        "parameterNumber": "2",
+        "stepType": "instant"
+      },
+      "display": {
+        "unit": "m/s",
+        "factor": 1,
+        "offset": 0,
+        "palette": "signed",
+        "auto": true,
+        "decimals": 1,
+        "symmetric": true
+      }
+    },
+    "100v": {
+      "name": "100 metre V wind component",
+      "title": "100 metre V wind component",
+      "units": "m s**-1",
+      "match": {
+        "discipline": "0",
+        "parameterCategory": "2",
+        "parameterNumber": "3",
+        "stepType": "instant"
+      },
+      "display": {
+        "unit": "m/s",
+        "factor": 1,
+        "offset": 0,
+        "palette": "signed",
+        "auto": true,
+        "decimals": 1,
+        "symmetric": true
+      }
+    },
+    "10fg": {
+      "name": "Maximum 10 metre wind gust since previous post-processing",
+      "title": "Maximum wind gust",
+      "units": "m s**-1",
+      "match": {
+        "discipline": "0",
+        "parameterCategory": "2",
+        "parameterNumber": "22",
+        "stepType": "max"
+      },
+      "display": {
+        "unit": "m/s",
+        "factor": 1,
+        "offset": 0,
+        "palette": "wind",
+        "auto": true,
+        "decimals": 1
+      },
+      "aliases": [
+        "gust"
+      ]
+    },
+    "10fg3": {
+      "name": "Maximum 10 metre wind gust in the last 3 hours",
+      "title": "Maximum 10 metre wind gust in the last 3 hours",
+      "units": "m s**-1",
+      "match": {
+        "discipline": "0",
+        "parameterCategory": "2",
+        "parameterNumber": "22",
+        "stepType": "max"
+      },
+      "display": {
+        "unit": "m/s",
+        "factor": 1,
+        "offset": 0,
+        "palette": "wind",
+        "auto": true,
+        "decimals": 1
+      }
+    },
+    "10u": {
+      "name": "10 metre U wind component",
+      "title": "10 metre U wind component",
+      "units": "m s**-1",
+      "match": {
+        "discipline": "0",
+        "parameterCategory": "2",
+        "parameterNumber": "2",
+        "stepType": "instant"
+      },
+      "display": {
+        "unit": "m/s",
+        "factor": 1,
+        "offset": 0,
+        "palette": "signed",
+        "auto": true,
+        "decimals": 1,
+        "symmetric": true
+      }
+    },
+    "10v": {
+      "name": "10 metre V wind component",
+      "title": "10 metre V wind component",
+      "units": "m s**-1",
+      "match": {
+        "discipline": "0",
+        "parameterCategory": "2",
+        "parameterNumber": "3",
+        "stepType": "instant"
+      },
+      "display": {
+        "unit": "m/s",
+        "factor": 1,
+        "offset": 0,
+        "palette": "signed",
+        "auto": true,
+        "decimals": 1,
+        "symmetric": true
+      }
+    },
+    "2d": {
+      "name": "2 metre dewpoint temperature",
+      "title": "Dew point",
+      "units": "K",
+      "match": {
+        "discipline": "0",
+        "parameterCategory": "0",
+        "parameterNumber": "6",
+        "stepType": "instant"
+      },
+      "display": {
+        "unit": "°C",
+        "factor": 1,
+        "offset": -273.15,
+        "palette": "temperature",
+        "auto": false,
+        "decimals": 1,
+        "range": [
+          -30,
+          40
+        ],
+        "ticks": [
+          -30,
+          -10,
+          10,
+          30,
+          40
+        ]
+      }
+    },
+    "2t": {
+      "name": "2 metre temperature",
+      "title": "Temperature",
+      "units": "K",
+      "match": {
+        "discipline": "0",
+        "parameterCategory": "0",
+        "parameterNumber": "0",
+        "stepType": "instant"
+      },
+      "display": {
+        "unit": "°C",
+        "factor": 1,
+        "offset": -273.15,
+        "palette": "temperature",
+        "auto": false,
+        "decimals": 1,
+        "range": [
+          -30,
+          40
+        ],
+        "ticks": [
+          -30,
+          -10,
+          10,
+          30,
+          40
+        ]
+      }
+    },
+    "asn": {
+      "name": "Snow albedo",
+      "title": "Snow albedo",
+      "units": "(0 - 1)",
+      "match": {
+        "discipline": "0",
+        "parameterCategory": "19",
+        "parameterNumber": "192",
+        "stepType": "instant"
+      },
+      "display": {
+        "unit": "%",
+        "factor": 100,
+        "offset": 0,
+        "palette": "cloud",
+        "auto": false,
+        "decimals": 1,
+        "range": [
+          0,
+          100
+        ],
+        "ticks": [
+          0,
+          25,
+          50,
+          75,
+          100
+        ]
+      }
+    },
+    "d": {
+      "name": "Divergence",
+      "title": "Divergence",
+      "units": "s**-1",
+      "match": {
+        "discipline": "0",
+        "parameterCategory": "2",
+        "parameterNumber": "13",
+        "stepType": "instant"
+      },
+      "display": {
+        "unit": "10⁻⁵ s⁻¹",
+        "factor": 100000.0,
+        "offset": 0,
+        "palette": "signed",
+        "auto": true,
+        "decimals": 2,
+        "symmetric": true
+      }
+    },
+    "ewss": {
+      "name": "Time-integrated eastward turbulent surface stress",
+      "title": "E–W surface stress",
+      "units": "N m**-2 s",
+      "match": {
+        "discipline": "0",
+        "parameterCategory": "2",
+        "parameterNumber": "62",
+        "stepType": "accum"
+      },
+      "display": {
+        "unit": "N·s/m²",
+        "factor": 1,
+        "offset": 0,
+        "palette": "signed",
+        "auto": true,
+        "decimals": 0,
+        "symmetric": true
+      }
+    },
+    "gh": {
+      "name": "Geopotential height",
+      "title": "Geopotential height",
+      "units": "gpm",
+      "match": {
+        "discipline": "0",
+        "parameterCategory": "3",
+        "parameterNumber": "5",
+        "stepType": "instant"
+      },
+      "display": {
+        "unit": "gpm",
+        "factor": 1,
+        "offset": 0,
+        "palette": "wind",
+        "auto": true,
+        "decimals": 2
+      }
+    },
+    "lsm": {
+      "name": "Land-sea mask",
+      "title": "Land-sea mask",
+      "units": "(0 - 1)",
+      "match": {
+        "discipline": "2",
+        "parameterCategory": "0",
+        "parameterNumber": "0",
+        "stepType": "instant"
+      },
+      "display": {
+        "unit": "%",
+        "factor": 100,
+        "offset": 0,
+        "palette": "cloud",
+        "auto": false,
+        "decimals": 1,
+        "range": [
+          0,
+          100
+        ],
+        "ticks": [
+          0,
+          25,
+          50,
+          75,
+          100
+        ]
+      }
+    },
+    "mn2t3": {
+      "name": "Minimum temperature at 2 metres in the last 3 hours",
+      "title": "Minimum temperature at 2 metres in the last 3 hours",
+      "units": "K",
+      "match": {
+        "discipline": "0",
+        "parameterCategory": "0",
+        "parameterNumber": "0",
+        "stepType": "min"
+      },
+      "display": {
+        "unit": "°C",
+        "factor": 1,
+        "offset": -273.15,
+        "palette": "temperature",
+        "auto": false,
+        "decimals": 1,
+        "range": [
+          -30,
+          40
+        ],
+        "ticks": [
+          -30,
+          -10,
+          10,
+          30,
+          40
+        ]
+      }
+    },
+    "mn2t6": {
+      "name": "Minimum temperature at 2 metres in the last 6 hours",
+      "title": "Minimum temperature at 2 metres in the last 6 hours",
+      "units": "K",
+      "match": {
+        "discipline": "0",
+        "parameterCategory": "0",
+        "parameterNumber": "0",
+        "stepType": "min"
+      },
+      "display": {
+        "unit": "°C",
+        "factor": 1,
+        "offset": -273.15,
+        "palette": "temperature",
+        "auto": false,
+        "decimals": 1,
+        "range": [
+          -30,
+          40
+        ],
+        "ticks": [
+          -30,
+          -10,
+          10,
+          30,
+          40
+        ]
+      }
+    },
+    "msl": {
+      "name": "Mean sea level pressure",
+      "title": "Sea-level pressure",
+      "units": "Pa",
+      "match": {
+        "discipline": "0",
+        "parameterCategory": "3",
+        "parameterNumber": "0",
+        "stepType": "instant"
+      },
+      "display": {
+        "unit": "hPa",
+        "factor": 0.01,
+        "offset": 0,
+        "palette": "wind",
+        "auto": false,
+        "decimals": 1,
+        "range": [
+          950,
+          1050
+        ]
+      }
+    },
+    "mucape": {
+      "name": "Most-unstable CAPE",
+      "title": "Most-unstable CAPE",
+      "units": "J kg**-1",
+      "match": {
+        "discipline": "0",
+        "parameterCategory": "7",
+        "parameterNumber": "6",
+        "stepType": "instant"
+      },
+      "display": {
+        "unit": "J/kg",
+        "factor": 1,
+        "offset": 0,
+        "palette": "wind",
+        "auto": true,
+        "decimals": 0
+      }
+    },
+    "mx2t3": {
+      "name": "Maximum temperature at 2 metres in the last 3 hours",
+      "title": "Maximum temperature at 2 metres in the last 3 hours",
+      "units": "K",
+      "match": {
+        "discipline": "0",
+        "parameterCategory": "0",
+        "parameterNumber": "0",
+        "stepType": "max"
+      },
+      "display": {
+        "unit": "°C",
+        "factor": 1,
+        "offset": -273.15,
+        "palette": "temperature",
+        "auto": false,
+        "decimals": 1,
+        "range": [
+          -30,
+          40
+        ],
+        "ticks": [
+          -30,
+          -10,
+          10,
+          30,
+          40
+        ]
+      }
+    },
+    "mx2t6": {
+      "name": "Maximum temperature at 2 metres in the last 6 hours",
+      "title": "Maximum temperature at 2 metres in the last 6 hours",
+      "units": "K",
+      "match": {
+        "discipline": "0",
+        "parameterCategory": "0",
+        "parameterNumber": "0",
+        "stepType": "max"
+      },
+      "display": {
+        "unit": "°C",
+        "factor": 1,
+        "offset": -273.15,
+        "palette": "temperature",
+        "auto": false,
+        "decimals": 1,
+        "range": [
+          -30,
+          40
+        ],
+        "ticks": [
+          -30,
+          -10,
+          10,
+          30,
+          40
+        ]
+      }
+    },
+    "nsss": {
+      "name": "Time-integrated northward turbulent surface stress",
+      "title": "N–S surface stress",
+      "units": "N m**-2 s",
+      "match": {
+        "discipline": "0",
+        "parameterCategory": "2",
+        "parameterNumber": "63",
+        "stepType": "accum"
+      },
+      "display": {
+        "unit": "N·s/m²",
+        "factor": 1,
+        "offset": 0,
+        "palette": "signed",
+        "auto": true,
+        "decimals": 0,
+        "symmetric": true
+      }
+    },
+    "ptype": {
+      "name": "Precipitation type",
+      "title": "Precipitation type",
+      "units": "(Code table 4.201)",
+      "match": {
+        "discipline": "0",
+        "parameterCategory": "1",
+        "parameterNumber": "19",
+        "stepType": "instant"
+      },
+      "display": {
+        "unit": "code",
+        "factor": 1,
+        "offset": 0,
+        "palette": "cloud",
+        "auto": true,
+        "decimals": 1
+      }
+    },
+    "q": {
+      "name": "Specific humidity",
+      "title": "Specific humidity",
+      "units": "kg kg**-1",
+      "match": {
+        "discipline": "0",
+        "parameterCategory": "1",
+        "parameterNumber": "0",
+        "stepType": "instant"
+      },
+      "display": {
+        "unit": "g/kg",
+        "factor": 1000,
+        "offset": 0,
+        "palette": "wind",
+        "auto": true,
+        "decimals": 2
+      }
+    },
+    "r": {
+      "name": "Relative humidity",
+      "title": "Relative humidity",
+      "units": "%",
+      "match": {
+        "discipline": "0",
+        "parameterCategory": "1",
+        "parameterNumber": "1",
+        "stepType": "instant"
+      },
+      "display": {
+        "unit": "%",
+        "factor": 1,
+        "offset": 0,
+        "palette": "wind",
+        "auto": true,
+        "decimals": 2
+      }
+    },
+    "ro": {
+      "name": "Runoff",
+      "title": "Runoff",
+      "units": "m",
+      "match": {
+        "discipline": "2",
+        "parameterCategory": "0",
+        "parameterNumber": "201",
+        "stepType": "accum"
+      },
+      "display": {
+        "unit": "mm",
+        "factor": 1000,
+        "offset": 0,
+        "palette": "rain",
+        "auto": true,
+        "decimals": 2
+      }
+    },
+    "rsn": {
+      "name": "Snow density",
+      "title": "Snow density",
+      "units": "kg m**-3",
+      "match": {
+        "discipline": "0",
+        "parameterCategory": "1",
+        "parameterNumber": "61",
+        "stepType": "instant"
+      },
+      "display": {
+        "unit": "kg/m³",
+        "factor": 1,
+        "offset": 0,
+        "palette": "wind",
+        "auto": true,
+        "decimals": 1
+      }
+    },
+    "sd": {
+      "name": "Snow depth",
+      "title": "Snow depth",
+      "units": "m of water equivalent",
+      "match": {
+        "discipline": "0",
+        "parameterCategory": "1",
+        "parameterNumber": "254",
+        "stepType": "instant"
+      },
+      "display": {
+        "unit": "mm w.e.",
+        "factor": 1000,
+        "offset": 0,
+        "palette": "rain",
+        "auto": true,
+        "decimals": 2
+      }
+    },
+    "sdor": {
+      "name": "Standard deviation of sub-gridscale orography",
+      "title": "Standard deviation of sub-gridscale orography",
+      "units": "m",
+      "match": {
+        "discipline": "0",
+        "parameterCategory": "3",
+        "parameterNumber": "20",
+        "stepType": "instant"
+      },
+      "display": {
+        "unit": "m",
+        "factor": 1,
+        "offset": 0,
+        "palette": "wind",
+        "auto": true,
+        "decimals": 2
+      }
+    },
+    "sf": {
+      "name": "Snowfall",
+      "title": "Accumulated snowfall",
+      "units": "m of water equivalent",
+      "match": {
+        "discipline": "0",
+        "parameterCategory": "1",
+        "parameterNumber": "198",
+        "stepType": "accum"
+      },
+      "display": {
+        "unit": "mm w.e.",
+        "factor": 1000,
+        "offset": 0,
+        "palette": "rain",
+        "auto": false,
+        "decimals": 2,
+        "range": [
+          0,
+          100
+        ],
+        "ticks": [
+          0,
+          1,
+          10,
+          50,
+          100
+        ],
+        "log": true
+      }
+    },
+    "sithick": {
+      "name": "Sea ice thickness",
+      "title": "Sea ice thickness",
+      "units": "m",
+      "match": {
+        "discipline": "10",
+        "parameterCategory": "2",
+        "parameterNumber": "1",
+        "stepType": "instant"
+      },
+      "display": {
+        "unit": "m",
+        "factor": 1,
+        "offset": 0,
+        "palette": "wind",
+        "auto": true,
+        "decimals": 2
+      }
+    },
+    "skt": {
+      "name": "Skin temperature",
+      "title": "Skin temperature",
+      "units": "K",
+      "match": {
+        "discipline": "0",
+        "parameterCategory": "0",
+        "parameterNumber": "17",
+        "stepType": "instant"
+      },
+      "display": {
+        "unit": "°C",
+        "factor": 1,
+        "offset": -273.15,
+        "palette": "temperature",
+        "auto": false,
+        "decimals": 1,
+        "range": [
+          -30,
+          40
+        ],
+        "ticks": [
+          -30,
+          -10,
+          10,
+          30,
+          40
+        ]
+      }
+    },
+    "slor": {
+      "name": "Slope of sub-gridscale orography",
+      "title": "Slope of sub-gridscale orography",
+      "units": "Numeric",
+      "match": {
+        "discipline": "0",
+        "parameterCategory": "3",
+        "parameterNumber": "22",
+        "stepType": "instant"
+      },
+      "display": {
+        "unit": "Numeric",
+        "factor": 1,
+        "offset": 0,
+        "palette": "wind",
+        "auto": true,
+        "decimals": 2
+      }
+    },
+    "sot": {
+      "name": "Soil temperature",
+      "title": "Soil temperature",
+      "units": "K",
+      "match": {
+        "discipline": "2",
+        "parameterCategory": "3",
+        "parameterNumber": "18",
+        "stepType": "instant"
+      },
+      "display": {
+        "unit": "°C",
+        "factor": 1,
+        "offset": -273.15,
+        "palette": "temperature",
+        "auto": false,
+        "decimals": 1,
+        "range": [
+          -30,
+          40
+        ],
+        "ticks": [
+          -30,
+          -10,
+          10,
+          30,
+          40
+        ]
+      }
+    },
+    "sp": {
+      "name": "Surface pressure",
+      "title": "Surface pressure",
+      "units": "Pa",
+      "match": {
+        "discipline": "0",
+        "parameterCategory": "3",
+        "parameterNumber": "0",
+        "stepType": "instant"
+      },
+      "display": {
+        "unit": "hPa",
+        "factor": 0.01,
+        "offset": 0,
+        "palette": "wind",
+        "auto": false,
+        "decimals": 1,
+        "range": [
+          500,
+          1050
+        ]
+      }
+    },
+    "ssr": {
+      "name": "Surface net short-wave (solar) radiation",
+      "title": "Surface net short-wave (solar) radiation",
+      "units": "J m**-2",
+      "match": {
+        "discipline": "0",
+        "parameterCategory": "4",
+        "parameterNumber": "9",
+        "stepType": "accum"
+      },
+      "display": {
+        "unit": "MJ/m²",
+        "factor": 1e-06,
+        "offset": 0,
+        "palette": "wind",
+        "auto": true,
+        "decimals": 2
+      }
+    },
+    "ssrd": {
+      "name": "Surface short-wave (solar) radiation downwards",
+      "title": "Solar radiation",
+      "units": "J m**-2",
+      "match": {
+        "discipline": "0",
+        "parameterCategory": "4",
+        "parameterNumber": "7",
+        "stepType": "accum"
+      },
+      "display": {
+        "unit": "MJ/m²",
+        "factor": 1e-06,
+        "offset": 0,
+        "palette": "wind",
+        "auto": true,
+        "decimals": 2
+      }
+    },
+    "str": {
+      "name": "Surface net long-wave (thermal) radiation",
+      "title": "Surface net long-wave (thermal) radiation",
+      "units": "J m**-2",
+      "match": {
+        "discipline": "0",
+        "parameterCategory": "5",
+        "parameterNumber": "5",
+        "stepType": "accum"
+      },
+      "display": {
+        "unit": "MJ/m²",
+        "factor": 1e-06,
+        "offset": 0,
+        "palette": "wind",
+        "auto": true,
+        "decimals": 2
+      }
+    },
+    "strd": {
+      "name": "Surface long-wave (thermal) radiation downwards",
+      "title": "Surface long-wave (thermal) radiation downwards",
+      "units": "J m**-2",
+      "match": {
+        "discipline": "0",
+        "parameterCategory": "5",
+        "parameterNumber": "3",
+        "stepType": "accum"
+      },
+      "display": {
+        "unit": "MJ/m²",
+        "factor": 1e-06,
+        "offset": 0,
+        "palette": "wind",
+        "auto": true,
+        "decimals": 2
+      }
+    },
+    "sve": {
+      "name": "Eastward surface sea water velocity",
+      "title": "Eastward surface sea water velocity",
+      "units": "m s**-1",
+      "match": {
+        "discipline": "10",
+        "parameterCategory": "3",
+        "parameterNumber": "14",
+        "stepType": "instant"
+      },
+      "display": {
+        "unit": "m/s",
+        "factor": 1,
+        "offset": 0,
+        "palette": "signed",
+        "auto": true,
+        "decimals": 1,
+        "symmetric": true
+      }
+    },
+    "svn": {
+      "name": "Northward surface sea water velocity",
+      "title": "Northward surface sea water velocity",
+      "units": "m s**-1",
+      "match": {
+        "discipline": "10",
+        "parameterCategory": "3",
+        "parameterNumber": "15",
+        "stepType": "instant"
+      },
+      "display": {
+        "unit": "m/s",
+        "factor": 1,
+        "offset": 0,
+        "palette": "signed",
+        "auto": true,
+        "decimals": 1,
+        "symmetric": true
+      }
+    },
+    "t": {
+      "name": "Temperature",
+      "title": "Temperature",
+      "units": "K",
+      "match": {
+        "discipline": "0",
+        "parameterCategory": "0",
+        "parameterNumber": "0",
+        "stepType": "instant"
+      },
+      "display": {
+        "unit": "°C",
+        "factor": 1,
+        "offset": -273.15,
+        "palette": "temperature",
+        "auto": false,
+        "decimals": 1,
+        "range": [
+          -30,
+          40
+        ],
+        "ticks": [
+          -30,
+          -10,
+          10,
+          30,
+          40
+        ]
+      }
+    },
+    "tcc": {
+      "name": "Total cloud cover",
+      "title": "Cloud cover",
+      "units": "(0 - 1)",
+      "match": {
+        "discipline": "0",
+        "parameterCategory": "6",
+        "parameterNumber": "192",
+        "stepType": "instant"
+      },
+      "display": {
+        "unit": "%",
+        "factor": 100,
+        "offset": 0,
+        "palette": "cloud",
+        "auto": false,
+        "decimals": 1,
+        "range": [
+          0,
+          100
+        ],
+        "ticks": [
+          0,
+          25,
+          50,
+          75,
+          100
+        ]
+      }
+    },
+    "tcw": {
+      "name": "Total column water",
+      "title": "Total column water",
+      "units": "kg m**-2",
+      "match": {
+        "discipline": "0",
+        "parameterCategory": "1",
+        "parameterNumber": "51",
+        "stepType": "instant"
+      },
+      "display": {
+        "unit": "kg/m²",
+        "factor": 1,
+        "offset": 0,
+        "palette": "wind",
+        "auto": true,
+        "decimals": 2
+      }
+    },
+    "tcwv": {
+      "name": "Total column vertically-integrated water vapour",
+      "title": "Total column vertically-integrated water vapour",
+      "units": "kg m**-2",
+      "match": {
+        "discipline": "0",
+        "parameterCategory": "1",
+        "parameterNumber": "64",
+        "stepType": "instant"
+      },
+      "display": {
+        "unit": "kg/m²",
+        "factor": 1,
+        "offset": 0,
+        "palette": "wind",
+        "auto": true,
+        "decimals": 2
+      }
+    },
+    "tp": {
+      "name": "Total precipitation",
+      "title": "Precipitation",
+      "units": "m",
+      "match": {
+        "discipline": "0",
+        "parameterCategory": "1",
+        "parameterNumber": "193",
+        "stepType": "accum"
+      },
+      "display": {
+        "unit": "mm",
+        "factor": 1000,
+        "offset": 0,
+        "palette": "rain",
+        "auto": false,
+        "decimals": 2,
+        "range": [
+          0,
+          100
+        ],
+        "ticks": [
+          0,
+          1,
+          10,
+          50,
+          100
+        ],
+        "log": true
+      }
+    },
+    "tprate": {
+      "name": "Total precipitation rate",
+      "title": "Total precipitation rate",
+      "units": "kg m**-2 s**-1",
+      "match": {
+        "discipline": "0",
+        "parameterCategory": "1",
+        "parameterNumber": "52",
+        "stepType": "instant"
+      },
+      "display": {
+        "unit": "mm/h",
+        "factor": 3600,
+        "offset": 0,
+        "palette": "rain",
+        "auto": true,
+        "decimals": 2
+      }
+    },
+    "ttr": {
+      "name": "Top net long-wave (thermal) radiation",
+      "title": "Top net long-wave (thermal) radiation",
+      "units": "J m**-2",
+      "match": {
+        "discipline": "0",
+        "parameterCategory": "5",
+        "parameterNumber": "5",
+        "stepType": "accum"
+      },
+      "display": {
+        "unit": "MJ/m²",
+        "factor": 1e-06,
+        "offset": 0,
+        "palette": "wind",
+        "auto": true,
+        "decimals": 2
+      }
+    },
+    "u": {
+      "name": "U component of wind",
+      "title": "U component of wind",
+      "units": "m s**-1",
+      "match": {
+        "discipline": "0",
+        "parameterCategory": "2",
+        "parameterNumber": "2",
+        "stepType": "instant"
+      },
+      "display": {
+        "unit": "m/s",
+        "factor": 1,
+        "offset": 0,
+        "palette": "signed",
+        "auto": true,
+        "decimals": 1,
+        "symmetric": true
+      }
+    },
+    "v": {
+      "name": "V component of wind",
+      "title": "V component of wind",
+      "units": "m s**-1",
+      "match": {
+        "discipline": "0",
+        "parameterCategory": "2",
+        "parameterNumber": "3",
+        "stepType": "instant"
+      },
+      "display": {
+        "unit": "m/s",
+        "factor": 1,
+        "offset": 0,
+        "palette": "signed",
+        "auto": true,
+        "decimals": 1,
+        "symmetric": true
+      }
+    },
+    "vo": {
+      "name": "Vorticity (relative)",
+      "title": "Vorticity",
+      "units": "s**-1",
+      "match": {
+        "discipline": "0",
+        "parameterCategory": "2",
+        "parameterNumber": "12",
+        "stepType": "instant"
+      },
+      "display": {
+        "unit": "10⁻⁵ s⁻¹",
+        "factor": 100000.0,
+        "offset": 0,
+        "palette": "signed",
+        "auto": true,
+        "decimals": 2,
+        "symmetric": true
+      }
+    },
+    "vsw": {
+      "name": "Volumetric soil moisture",
+      "title": "Soil water content",
+      "units": "m**3 m**-3",
+      "match": {
+        "discipline": "2",
+        "parameterCategory": "0",
+        "parameterNumber": "25",
+        "stepType": "instant"
+      },
+      "display": {
+        "unit": "m³/m³",
+        "factor": 1,
+        "offset": 0,
+        "palette": "wind",
+        "auto": true,
+        "decimals": 3
+      }
+    },
+    "w": {
+      "name": "Vertical velocity",
+      "title": "Vertical velocity",
+      "units": "Pa s**-1",
+      "match": {
+        "discipline": "0",
+        "parameterCategory": "2",
+        "parameterNumber": "8",
+        "stepType": "instant"
+      },
+      "display": {
+        "unit": "Pa/s",
+        "factor": 1,
+        "offset": 0,
+        "palette": "signed",
+        "auto": true,
+        "decimals": 3,
+        "symmetric": true
+      }
+    },
+    "z": {
+      "name": "Geopotential",
+      "title": "Geopotential",
+      "units": "m**2 s**-2",
+      "match": {
+        "discipline": "0",
+        "parameterCategory": "3",
+        "parameterNumber": "4",
+        "stepType": "instant"
+      },
+      "display": {
+        "unit": "m²/s²",
+        "factor": 1,
+        "offset": 0,
+        "palette": "wind",
+        "auto": true,
+        "decimals": 0
+      }
+    },
+    "zos": {
+      "name": "Sea surface height",
+      "title": "Sea surface height",
+      "units": "m",
+      "match": {
+        "discipline": "10",
+        "parameterCategory": "3",
+        "parameterNumber": "1",
+        "stepType": "instant"
+      },
+      "display": {
+        "unit": "m",
+        "factor": 1,
+        "offset": 0,
+        "palette": "wind",
+        "auto": true,
+        "decimals": 2
+      }
+    }
+  }
+}

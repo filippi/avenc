@@ -404,7 +404,7 @@ class AvencExtractor {
     this.colormapSelect.value = "gray";
     const dataset = this.getRequestedDatasetFromUrl();
     if (!dataset) {
-      this.statusText.textContent = "Missing dataset parameter. Open via index.php or add ?dataset=./datasets/<file>.mp4";
+      this.statusText.textContent = "Missing dataset parameter. Open via index.html or add ?dataset=./dataset/<file>.mp4";
       return;
     }
     await this.loadDatasetByUrl(dataset);

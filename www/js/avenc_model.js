@@ -278,6 +278,8 @@ function decodeAvencCommentPayload(prefix, payloadB64) {
         value_min: Number(s.min_value),
         value_max: Number(s.max_value),
         options: {
+          template_b64: s.template_b64,
+          bitmap_payload: s.bitmap_payload,
           bits: Number(s.bits || 8),
           min_value: Number(s.min_value),
           max_value: Number(s.max_value),
@@ -316,6 +318,16 @@ function decodeAvencCommentPayload(prefix, payloadB64) {
       });
     }
 
+    // Coordinate extension (flags bit 0): retain the original grid axes.
+    const coords = {};
+    if (_flags & 1) {
+      for (const [name, expected, units] of [["lat", ny, "degrees_north"], ["lon", nx, "degrees_east"]]) {
+        const count = readU32(`${name}_count`);
+        if (count !== expected) throw new Error(`Unexpected ${name} coordinate count`);
+        const values = Array.from({length: count}, () => readF64(name));
+        coords[name] = {data: {values, shape: [count]}, attrs: {units}};
+      }
+    }
     return {
       schema: "avenc.pack.v2.binary",
       width: Number(nx),
@@ -324,7 +336,7 @@ function decodeAvencCommentPayload(prefix, payloadB64) {
       shape: [Number(totalFrames), Number(ny), Number(nx)],
       dtype: "float32",
       options: { bits: Number(maxBits || 8) },
-      coords: {},
+      coords,
       groups
     };
   }
@@ -1269,7 +1281,7 @@ export class AvencModel extends EventTarget {
       codec,
       codedWidth: Number(track.video?.width || this.currentGroup.options.encoded_width),
       codedHeight: Number(track.video?.height || this.currentGroup.options.encoded_height),
-      hardwareAcceleration: "prefer-hardware"
+      hardwareAcceleration: this.decodeHardwareAcceleration || "prefer-hardware"
     };
     const description = this._getDecoderDescription(this._mp4File, track.id);
     if (description) config.description = description;

@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="icon" href="data:,">
+<meta name="theme-color" content="#0b1520"><title>ECFlix · IFS forecast explorer</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="./met.css">
+</head>
+<body>
+<div id="map" aria-label="Interactive forecast map"></div>
+<header class="topbar"><a class="brand" href="./index.html"><span class="brand-symbol">≋</span><span class="brand-name">EC<span>Flix</span></span></a><span class="top-divider"></span><span class="forecast-model">ECMWF IFS <span id="resolution">FORECAST EXPLORER</span></span><label class="dataset-picker"><span class="sr-only">Forecast dataset</span><select id="datasetSelect" aria-label="Forecast dataset" disabled><option>Loading forecasts…</option></select></label><span class="spacer"></span><span id="network" class="network">Connecting…</span><button id="panelToggle" class="layers-toggle" aria-label="Toggle weather controls" aria-controls="layersPanel" aria-expanded="false">☰</button><button id="share" class="icon-button" title="Copy this view's URL" aria-label="Copy view link">↗</button></header>
+<aside class="preview-notice" role="note" aria-label="Visualization-only disclaimer"><strong>VISUALIZATION ONLY</strong><span>This IFS forecast is highly compressed. Values and extremes may be altered. Do not use for scientific analysis or operational decisions.</span><button id="about" type="button">About this demo ↗</button></aside>
+<div class="mobile-parameters glass"><label class="sr-only" for="mobileParameter">Weather parameter</label><select id="mobileParameter" disabled aria-label="Weather parameter"><option>Loading parameters…</option></select></div>
+<button id="collapseRail" class="rail-toggle glass" aria-controls="layersPanel" aria-expanded="true" aria-label="Collapse weather controls">‹</button>
+<aside id="layersPanel" class="sidebar glass">
+  <div class="eyebrow">IFS · COMPRESSED FORECAST PREVIEW</div>
+  <h1 id="fieldTitle">Wind</h1><p id="fieldDescription">10-metre wind speed & direction</p>
+  <div class="field-buttons" role="group" aria-label="Weather layers">
+    <button class="field active" data-field="wind" title="Wind" aria-label="Wind"><span>↗</span><small>Wind</small></button>
+    <button class="field" data-field="temperature" title="Temperature" aria-label="Temperature"><span>◉</span><small>Temp</small></button>
+    <button class="field" data-field="rain" title="Precipitation" aria-label="Precipitation"><span>☂</span><small>Rain</small></button>
+    <button class="field" data-field="cloud" title="Cloud cover" aria-label="Cloud cover"><span>☁</span><small>Cloud</small></button>
+  </div>
+  <label class="label" for="level">LEVEL</label><select id="level" disabled><option value="surface">Surface</option></select>
+  <div class="rail-actions"><button id="moreFields" class="rail-action" aria-expanded="false" aria-controls="railOptions" title="All fields and settings"><span>⊞</span>More</button><button id="exportField" class="rail-action" disabled title="Download full native field as Float32 NPZ"><span>⇩</span>NPZ</button><button id="pythonHelp" class="rail-action" title="Open this field in Python"><span>⌘</span>Python</button></div>
+</aside>
+<aside id="railOptions" class="rail-options glass" hidden><button id="closeOptions" class="dialog-close" aria-label="Close field settings">×</button><div class="eyebrow">FIELD & DISPLAY</div>
+  <label class="label" for="allFields">EXPLORE EVERY FIELD</label><select id="allFields" disabled><option value="">Choose a variable…</option></select>
+  <div class="separator"></div>
+  <div class="setting"><label for="flow">Wind motion</label><input type="checkbox" id="flow" checked></div>
+  <div class="setting"><label for="arrows">Direction arrows</label><input type="checkbox" id="arrows" checked></div>
+  <div class="setting"><label for="opacity">Layer opacity</label><input type="range" id="opacity" min="0" max="100" value="78"></div>
+  <div class="setting"><label for="basemap">Base map</label><select id="basemap"><option value="dark">Dark</option><option value="streets">Streets</option><option value="none">None</option></select></div>
+  <div class="separator"></div>
+  <details><summary>Dataset & connection</summary><label class="sr-only" for="dataset">AVENC MP4 URL</label><input id="dataset" type="url" spellcheck="false" aria-label="AVENC MP4 URL"><button id="connect">Open dataset <span>→</span></button><p class="source-note">Direct MP4 byte ranges. Decoded locally in your browser.</p><div id="datasetInfo" class="dataset-info"></div></details>
+  <a class="tools-link" href="./viewer.html">Inspect with the AVENC viewer ↗</a>
+</aside>
+<div class="map-actions"><button id="home" title="Return to Europe" aria-label="Return to Europe">⌖</button><button id="world" title="Show the world" aria-label="Show the world">◎</button></div>
+<section class="probe glass" id="probe" hidden><button id="closeProbe" title="Close point reading" aria-label="Close point reading">×</button><div class="eyebrow" id="probeCoords"></div><strong id="probeValue"></strong><span id="probeDetail"></span></section>
+<div class="legend glass"><div class="legend-heading"><span id="legendTitle">Wind speed</span><span id="legendUnit">m/s</span></div><div class="legend-scale"><canvas id="legend" width="12" height="240"></canvas><div id="legendTicks" class="legend-ticks"></div></div></div>
+<div id="message" class="message glass" role="status" aria-live="polite"><span class="loading-dot"></span><span id="messageText">Reading the forecast index…</span></div>
+<footer class="timeline glass"><div class="time-top"><div><span class="eyebrow">VALID TIME · UTC</span><div id="validTime" class="valid-time">Loading forecast</div></div><div class="run-info" id="runInfo">IFS operational forecast</div></div><div class="time-controls"><button id="previous" aria-label="Previous forecast time">‹</button><button id="play" class="play" aria-label="Play forecast">▶</button><button id="next" aria-label="Next forecast time">›</button><input type="range" id="time" min="0" max="0" value="0" disabled aria-label="Forecast time"><span id="lead" class="lead">+0 h</span></div><div id="timeTicks" class="time-ticks"></div></footer>
+<dialog id="aboutDialog" aria-labelledby="aboutTitle"><button id="closeAbout" class="dialog-close" aria-label="Close information">×</button><div class="eyebrow">ECFLIX · AN AVENC DEMONSTRATION</div><h2 id="aboutTitle">A view, not a reference.</h2><p class="disclaimer-large">These forecasts are highly compressed and are provided solely for visualization. Compression can alter values, local extremes and small-scale structures.</p><p>Do not use this preview for scientific analysis, operational forecasting or safety-related decisions. Displayed units describe the reconstructed variables; they do not certify their accuracy.</p><p>ECFlix is an independent demonstration using ECMWF IFS data and AVENC. It is not an official ECMWF service.</p><a href="./data/ifs_variables.json" target="_blank" rel="noopener">Variable names, source units & display conversions ↗</a></dialog>
+<dialog id="pythonDialog" aria-labelledby="pythonTitle"><button id="closePython" class="dialog-close" aria-label="Close Python example">×</button><div class="eyebrow">FROM THIS MAP TO YOUR NOTEBOOK</div><h2 id="pythonTitle">One field. Ready for Python.</h2><p>Download the current native-resolution field as a compressed Float32 NPZ. Coordinates, UTC time, units and source URL travel with it. These are reconstructed, highly compressed preview values.</p><button id="pythonDownload" class="download-primary">⇩ Download current field (.npz)</button><pre id="pythonExample"></pre><button id="copyPython" class="copy-python">Copy Python example</button><p id="exportStatus" role="status"></p></dialog>
+<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mp4box@0.5.3/dist/mp4box.all.min.js"></script>
+<script type="module" src="./js/avenc_met.js"></script>
+</body></html>

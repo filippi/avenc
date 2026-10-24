@@ -1,0 +1,26 @@
+{
+  "schema": "ecflix.datasets.v1",
+  "default": "./dataset/20261021.browser_svt10.mp4",
+  "datasets": [
+    {
+      "url": "./dataset/browser_svt_sample.mp4",
+      "label": "AV1 browser sample",
+      "bytes": 1045451
+    },
+    {
+      "url": "./dataset/20261021.browser_svt10.mp4",
+      "label": "21 Oct 2026 \u00b7 IFS 0.1\u00b0 \u00b7 Compact preview",
+      "bytes": 178513009
+    },
+    {
+      "url": "./dataset/20261019.corrected.mp4",
+      "label": "19 Oct 2026 \u00b7 IFS 0.25\u00b0 \u00b7 Mixed codecs",
+      "bytes": 2556329812
+    },
+    {
+      "url": "./dataset/20261019.browser_svt10.mp4",
+      "label": "19 Oct 2026 \u00b7 IFS 0.25\u00b0 \u00b7 Compact preview",
+      "bytes": 103605788
+    }
+  ]
+}

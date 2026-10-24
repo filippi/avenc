@@ -69,37 +69,3 @@ for (const fixture of process.argv.slice(2)) {
   console.log(`${fixture}: ${fast.marker_prefix} ${fast.records} records; fast ${fast.bytes_fetched} bytes, full ${full.bytes_fetched} bytes`);
 }
 console.log('Metadata range, fallback, cancellation, limit and fixture checks passed.');
-
-// Exercise page caching, mode changes, and out-of-order completion without a browser.
-const { runInNewContext } = await import('node:vm');
-const html = await readFile(new URL('../index.php', import.meta.url), 'utf8');
-const pageScript = html.match(/<script type="module">([\s\S]*?)<\/script>/)[1].replace(/import .*?;/, '');
-const elements = new Map();
-const getElement = id => {
-  if (!elements.has(id)) elements.set(id, { textContent: '', checked: true, addEventListener() {} });
-  return elements.get(id);
-};
-const requests = [];
-const context = {
-  document: { getElementById: getElement, querySelectorAll: () => [] },
-  AbortController,
-  formatBytes: n => `${n} bytes`,
-  inspectAvencDataset: (url, options) => new Promise(resolve => requests.push({ url, options, resolve }))
-};
-runInNewContext(pageScript, context);
-const summary = { ok: true, marker_prefix: 'AVENCv2|', parse_time_ms: 1, bytes_fetched: 65536 };
-const older = context.loadMeta('older');
-const newer = context.loadMeta('newer');
-assert.equal(requests[0].options.signal.aborted, true);
-requests[1].resolve(summary); await newer;
-requests[0].resolve({ ...summary, error: 'stale' }); await older;
-assert.equal(getElement('metaDataset').textContent, 'newer');
-assert.ok(!getElement('metaJson').textContent.includes('stale'));
-await context.loadMeta('newer');
-assert.equal(requests.length, 2, 'repeat click must not inspect again');
-assert.match(getElement('metaStatus').textContent, /cached/);
-getElement('fastMode').checked = false;
-const fullRequest = context.loadMeta('newer');
-assert.equal(requests[2].options.fast, false);
-requests[2].resolve(summary); await fullRequest;
-console.log('Page caching, mode switching and stale-response checks passed.');

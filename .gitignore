@@ -30,8 +30,12 @@ synthetic_tests/
 .DS_Store
 .env
 .env.*
+localSuperComputer.md
 
 # Release staging
 wheelhouse/
 native/
 *.whl
+
+# Local weather-map demonstration data
+/www/dataset/

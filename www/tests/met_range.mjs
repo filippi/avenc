@@ -1,0 +1,26 @@
+import assert from 'node:assert/strict';
+import {readFile} from 'node:fs/promises';
+const source=(await readFile(new URL('../js/avenc_range_model.js',import.meta.url),'utf8')).replace(/^import .*?;\n/gm,'');
+const {ByteRanges,AvencRangeModel}=await import('data:text/javascript;base64,'+Buffer.from('class AvencModel {}\n'+source).toString('base64'));
+let cancelled=false;
+globalThis.fetch=async()=>({status:200,headers:new Headers(),body:{cancel:async()=>{cancelled=true;}}});
+await assert.rejects(new ByteRanges('fake').read(0,15),/HTTP 206/);assert(cancelled,'Reject whole-file responses before buffering');
+const box=(type,n)=>{const b=Buffer.alloc(n);b.writeUInt32BE(n);b.write(type,4);return b;};
+const ftyp=box('ftyp',24),mdat=box('mdat',2048),moov=box('moov',64),file=Buffer.concat([ftyp,mdat,moov]);
+let calls=[];
+globalThis.fetch=async(url,options)=>{const [,a,b]=options.headers.Range.match(/bytes=(\d+)-(\d+)/);const start=+a,end=+b;calls.push([start,end]);return new Response(file.subarray(start,end+1),{status:206,headers:{'Content-Range':`bytes ${start}-${end}/${file.length}`}});};
+const reader=new ByteRanges('fake'),index=await reader.index();
+assert.equal(index.index.byteLength,88);assert.equal(reader.size,file.length);assert(reader.bytes<200,'Movie metadata read must skip media data');
+assert(calls.every(([a,b])=>!(a>24&&a<2072)),'Do not walk through mdat payload');
+const ac=new AbortController();ac.abort();await assert.rejects(reader.read(0,15,ac.signal),{name:'AbortError'});
+// Stream samples interleaved with other tracks: request only this stream's bytes.
+const model=new AvencRangeModel();model.videoTracks=[{id:1}];
+const samples=[0,1,2,3].map(i=>({number:i,cts:[0,2,1,3][i],offset:i*10,size:2,is_sync:i===0||i===3}));
+model._mp4File={getTrackById:()=>({samples})};calls=[];model.transport=reader;
+const result=await model.packets({id:0,stream_index:0},1);
+assert.equal(result.target.number,2,'Requested frame follows presentation order');
+assert.deepEqual(calls,[[0,1],[10,11],[20,21]],'Do not fetch intervening samples from other tracks');
+const n=calls.length;await model.packets({id:0,stream_index:0},2);assert.equal(calls.length,n,'Adjacent times reuse compressed GOP cache');
+globalThis.fetch=async()=>new Response(new Uint8Array(2),{status:206,headers:{'Content-Range':'bytes 0-15/100'}});
+await assert.rejects(new ByteRanges('fake').read(0,15),/Truncated/);
+console.log('PASS: strict 206, metadata-only box walking, abort/truncation rejection, interleaved GOP ranges, B-frame order and GOP reuse.');

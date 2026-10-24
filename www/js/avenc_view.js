@@ -281,7 +281,7 @@ class AvencViewer {
     const url = this.getRequestedDatasetFromUrl();
     if (!url) {
       this.statusText.textContent =
-        "Missing dataset parameter. Open this viewer via index.php or add ?dataset=./datasets/<file>.mp4";
+        "Missing dataset parameter. Open this viewer via index.html or add ?dataset=./dataset/<file>.mp4";
       return;
     }
     await this.loadDatasetByUrl(url);
