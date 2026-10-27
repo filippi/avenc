@@ -1,0 +1,35 @@
+import assert from 'node:assert/strict';
+import {readFile} from 'node:fs/promises';
+const code=await readFile(new URL('../js/avenc_trajectories.js',import.meta.url),'utf8');
+const {sampleVelocity,displace,advanceParticle,EmitterSimulation}=await import('data:text/javascript;base64,'+Buffer.from(code).toString('base64'));
+const g={nx:360,ny:181,lat0:90,lon0:0,dx:1,dy:-1,cyclic:true},size=g.nx*g.ny;
+const pair=(u,v)=>({u:new Float32Array(size).fill(u),v:new Float32Array(size).fill(v)}),flow=pair(10,0),still=pair(0,0),R=6371000,rad=Math.PI/180;
+assert.deepEqual(sampleVelocity(g,flow.u,flow.v,0,-.3),[10,0]);
+assert.equal(sampleVelocity({...g,native:true},flow.u,flow.v,0,0),null);
+const gradient=pair(0,0);gradient.u[90*360+1]=4;assert.deepEqual(sampleVelocity(g,gradient.u,gradient.v,0,.25),[1,0]);
+const p=()=>({lat:0,lon:0,active:true});
+let a=p();advanceParticle(a,g,flow,flow,3600);assert(Math.abs(a.lon-36000/R/rad)<1e-7);assert(Math.abs(a.lat)<1e-7);
+advanceParticle(a,g,flow,flow,-3600);assert(Math.abs(a.lon)<1e-7);
+const crossing=displace(0,179.99,10,0,3600);assert(crossing.lon< -179);
+a=p();advanceParticle(a,g,still,flow,3600);assert(Math.abs(a.lon-18000/R/rad)<1e-7);
+const mask=pair(10,0);mask.u[90*360]=NaN;a=p();advanceParticle(a,g,mask,mask,3600);assert.equal(a.active,false);assert.equal(a.lon,0);
+let sumX=0,sumY=0,sumXX=0,sumYY=0;const count=4000,K=1000,t=3600;
+for(let seed=1;seed<=count;seed++){a=p();advanceParticle(a,g,still,still,t,0,{diffusion:K,seed});const x=a.lon*R*rad,y=a.lat*R*rad;sumX+=x;sumY+=y;sumXX+=x*x;sumYY+=y*y;assert(a.active);}
+for(const [sum,square]of [[sumX,sumXX],[sumY,sumYY]]){assert(Math.abs(sum/count)<150);assert(Math.abs((square/count-(sum/count)**2)/(2*K*t)-1)<.08);}
+a=p();const b=p();advanceParticle(a,g,flow,flow,t,0,{diffusion:K,seed:77});advanceParticle(b,g,flow,flow,t,0,{diffusion:K,seed:77});assert.deepEqual(a,b);
+const frames=Array.from({length:6},(_,i)=>({ms:i*3600000})),sim=new EmitterSimulation();sim.setDiffusion(K);const s=sim.add(0,0,2,frames[2].ms,'#ff0000');
+const opts={frames,geometry:g,loadPair:async()=>flow};await sim.evaluate(5,opts);const expected=structuredClone(s.state);s.cache.clear();await sim.evaluate(3,opts);await sim.evaluate(5,opts);assert.deepEqual(s.state,expected);
+await sim.evaluate(0,opts);assert(s.state.particles[0].lon<0);assert.equal(new Set(s.state.particles.map(p=>p.id)).size,s.state.particles.length);
+await sim.evaluate(2,opts);assert.equal(s.state.particles.length,1);assert.equal(s.state.particles[0].lon,0);
+sim.setDiffusion(0);assert.equal(s.cache.size,0);assert.equal(s.state,null);await sim.evaluate(5,opts);assert(s.state.particles[0].lon>0);
+const abort=new AbortController();await assert.rejects(()=>sim.evaluate(4,{...opts,signal:abort.signal,loadPair:async()=>{abort.abort();return flow;}}),{name:'AbortError'});
+const atomic=new EmitterSimulation(),one=atomic.add(0,0,0,0,'red'),two=atomic.add(0,0,0,0,'blue');let second=false;
+await assert.rejects(()=>atomic.evaluate(1,{...opts,onProgress:s=>{second=s===two;},loadPair:async()=>{if(second)throw Error('decode failure');return flow;}}),/decode failure/);assert.equal(one.state,null);assert.equal(two.state,null);
+assert.throws(()=>sim.setDiffusion(-1));assert.throws(()=>sim.setDiffusion(NaN));
+for(let i=0;i<5;i++)sim.add(0,0,0,0,'#fff');assert.throws(()=>sim.add(0,0,0,0,'#fff'));sim.remove(s.id);assert.equal(sim.sources.length,5);sim.clear();assert.equal(sim.sources.length,0);
+const longFrames=Array.from({length:110},(_,i)=>({ms:i*3600000})),plume=new EmitterSimulation();
+assert.equal(plume.perInterval,16);assert.equal(plume.lifetimeHours,Infinity);const cloud=plume.add(0,0,0,0,'#fff');
+const longOptions={frames:longFrames,geometry:g,loadPair:async()=>still};await plume.evaluate(100,longOptions);assert(cloud.state.particles.length<=768);assert(cloud.state.particles.every(p=>Number.isFinite(p.bornMs)));
+const dailyFrames=Array.from({length:11},(_,i)=>({ms:i*86400000}));plume.setEmission(8,Infinity);await plume.evaluate(10,{...longOptions,frames:dailyFrames});assert.equal(cloud.state.particles[0].id,0);assert.equal(cloud.state.particles.length,81);
+plume.setEmission(8,168);assert.equal(cloud.state,null);assert.equal(cloud.cache.size,0);await plume.evaluate(10,{...longOptions,frames:dailyFrames});assert.equal(cloud.state.particles.length,56);assert(cloud.state.particles.every(p=>10*86400000-p.bornMs<168*3600000));assert.throws(()=>plume.setEmission(100,168));
+console.log('PASS: spatial/time interpolation, physical elapsed time, reverse advection, dateline, masks, Brownian variance 2Kt per axis, deterministic replay, caching, abort and source limits.');

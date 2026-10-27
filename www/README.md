@@ -33,7 +33,7 @@ not certify hardware codec support in every browser.
 ## ECFlix weather map (static, range-based)
 
 `index.html` is ECFlix, an IFS weather explorer with a zoomable OpenStreetMap
-background, paired U/V winds, particles/arrows, temperature, accumulated rain,
+background, paired U/V winds and surface currents (sve/svn), particles/arrows, temperature, accumulated rain,
 pressure levels, forecast playback and point values. It reads only metadata and
 selected GOP byte ranges, with bounded caches; it never falls back to a complete
 MP4 download. No PHP is required.
@@ -99,3 +99,73 @@ use an illustrative visual clock rather than forecast-time trajectories. Close
 views use modest supersampling within a six-million-pixel canvas budget. This
 sharpens rendering, not the scientific grid: source cells remain nearest-sampled
 at their native resolution, and zooming does not fetch additional weather data.
+
+## Flow sources and diffusion
+
+Choose **Wind** or **Currents**, then **Sources → Place source on map**. Pick a
+colour and click/tap a valid flow cell. Up to six sources can be placed, each
+anchored to its own selected forecast time. The current layer requires paired
+`sve` and `svn` fields with matching level/member and valid times; unavailable
+layers are disabled. **▶** advances the forecast, **◀** plays backward; playback
+stops at the forecast ends. Both projections use the same geographic paths.
+
+Source particles use actual elapsed forecast seconds and velocities in m/s:
+bilinear spatial interpolation, linear interpolation between valid times, and
+midpoint integration with a 600-second / quarter-cell step limit. By default 16 particles
+are released per forecast interval, staggered through that interval. These are
+illustrative continuous emissions, not concentration estimates. Memory is bounded
+at 768 particles/source and 24 track points/particle.
+
+**Brownian diffusion**, in m²/s, defaults to zero (advection alone). It adds
+independent east/north displacements with variance `2 K |dt|` per component.
+For example, `K=1000` gives a no-flow planar radial RMS displacement of about
+3.79 km after one hour; the panel shows this reference scale. Diffusion uses a
+repeatable counter-based random generator, so seeking and replaying reproduce
+the same paths within a source's forward or backward branch. A diffusion change
+clears trajectory caches and recomputes from each release. It does not modify
+the data, decorative flow animation, or downloads. Backward diffusion illustrates
+possible origins; it does not invert physical mixing or infer source probabilities.
+
+The source integrator stops particles at missing velocity cells; it has no
+coastline collision/reflection model, vertical transport, or subgrid turbulence
+calibration. These are trajectories of compressed preview fields, not a validated
+transport forecast. Decorative white flow trails retain an illustrative visual
+clock (enhanced for slow currents); coloured sources never use that multiplier.
+Changing field, level or dataset clears sources. Rotating, zooming or switching
+2D/3D preserves them. Sources are session-local and are not included in shared URLs.
+
+A time seek with active sources reads intervening paired forecast times over
+HTTP Range, with progress/cancellation and bounded grid/trajectory caches. It
+can therefore transfer more data than inspecting a single field without sources.
+
+Focused checks:
+
+```bash
+node www/tests/met_trajectories.mjs
+# Optional: existing local MP4 fixture, range server, Playwright and Chrome
+NODE_PATH=/path/to/node_modules CHROME_EXECUTABLE=/path/to/chrome \
+  node www/tests/met_sources.cjs
+```
+
+### Smoke / dye display
+
+Coloured source particles are drawn as overlapping radial-gradient puffs with
+normal alpha blending. **Trajectory lines** is off by default and can be toggled
+independently of the plume. **Emission density** selects 8, 16 or 32 staggered
+releases per forecast interval. **Particle lifetime** defaults to **Forever** (no age-based expiry or fading),
+with **One week** as the alternative, measured in forecast time in either direction.
+The 768-particle/source memory cap still replaces the oldest particles when full,
+including in Forever mode. Emission and lifetime changes recompute the source's cached states.
+**Puff size** and **Plume opacity** change only the appearance, not diffusion or
+velocity.
+
+A six-sprite colour cache avoids generating gradients every frame. Rendering is
+capped at 30 fps and device-pixel ratio 2, skips hidden tabs and draws no paths
+unless requested. Neighbouring forecast frames interpolate positions over 650 ms;
+long seeks snap to the calculated state. No extra simulation or emission occurs
+while paused. Rotation and zoom only change projection. The puffs suggest smoke
+or dye; their brightness and pixel radius are not a calibrated concentration or
+physical plume width. Existing diffusion remains the geographic spreading model.
+
+Additional render checks: `node www/tests/met_plume.cjs` (same browser prerequisites
+as `met_sources.cjs`).

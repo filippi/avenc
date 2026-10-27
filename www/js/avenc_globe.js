@@ -124,7 +124,7 @@ export class AvencGlobe{
  }
  wind(lat,lon){if(!this.current?.v)return null;const k=gridIndex(this.geometry,lat,lon);if(k<0)return null;const u=this.current.u[k],v=this.current.v[k];return Number.isFinite(u)&&Number.isFinite(v)?[u,v]:null;}
  drawArrows(){const ctx=this.arrows.getContext('2d');ctx.clearRect(0,0,this.arrows.width,this.arrows.height);if(!this.settings?.arrows||!this.current?.v)return;ctx.setTransform(this.dpr,0,0,this.dpr,0,0);ctx.strokeStyle='#f2fbffb8';ctx.lineWidth=.8;
-  for(let lat=-75;lat<=75;lat+=12)for(let lon=-180;lon<180;lon+=12){const p=this.screen(lat,lon);if(p.z<.15)continue;const wind=this.wind(lat,lon);if(!wind)continue;const speed=Math.hypot(...wind);if(speed<.5)continue;const next=this.screen(lat+wind[1]/speed,lon+wind[0]/speed/Math.max(.1,Math.cos(lat*Math.PI/180))),a=Math.atan2(next.y-p.y,next.x-p.x),len=Math.min(13,6+speed*.12),dx=Math.cos(a)*len,dy=Math.sin(a)*len;ctx.beginPath();ctx.moveTo(p.x-dx/2,p.y-dy/2);ctx.lineTo(p.x+dx/2,p.y+dy/2);for(const t of [-.55,.55]){ctx.moveTo(p.x+dx/2,p.y+dy/2);ctx.lineTo(p.x+dx/2-Math.cos(a+t)*3,p.y+dy/2-Math.sin(a+t)*3);}ctx.stroke();}
+  for(let lat=-75;lat<=75;lat+=12)for(let lon=-180;lon<180;lon+=12){const p=this.screen(lat,lon);if(p.z<.15)continue;const wind=this.wind(lat,lon);if(!wind)continue;const speed=Math.hypot(...wind);if(speed*(this.settings?.motionScale||1)<.5)continue;const next=this.screen(lat+wind[1]/speed,lon+wind[0]/speed/Math.max(.1,Math.cos(lat*Math.PI/180))),a=Math.atan2(next.y-p.y,next.x-p.x),len=Math.min(13,6+speed*(this.settings?.motionScale||1)*.12),dx=Math.cos(a)*len,dy=Math.sin(a)*len;ctx.beginPath();ctx.moveTo(p.x-dx/2,p.y-dy/2);ctx.lineTo(p.x+dx/2,p.y+dy/2);for(const t of [-.55,.55]){ctx.moveTo(p.x+dx/2,p.y+dy/2);ctx.lineTo(p.x+dx/2-Math.cos(a+t)*3,p.y+dy/2-Math.sin(a+t)*3);}ctx.stroke();}
  }
  // Uniform screen-space seeding keeps trails in the visible view, including after zoom/rotation.
  seed(){
@@ -140,7 +140,7 @@ export class AvencGlobe{
   if(!this.current?.v||!this.settings?.flow||matchMedia('(prefers-reduced-motion: reduce)').matches)return;
   const ctx=this.flow.getContext('2d');ctx.setTransform(this.dpr,0,0,this.dpr,0,0);ctx.globalCompositeOperation='destination-in';ctx.fillStyle='rgba(0,0,0,.96)';ctx.fillRect(0,0,this.width,this.height);ctx.globalCompositeOperation='source-over';ctx.strokeStyle='#efffffd9';ctx.lineWidth=this.width<760?1:1.05;ctx.lineCap='round';ctx.beginPath();
   // A zoom-dependent visual clock preserves readable screen motion, not elapsed forecast time.
-  const scale=dt*3/Math.max(150,this.radius)*180/Math.PI;
+  const scale=dt*3/Math.max(150,this.radius)*180/Math.PI*(this.settings?.motionScale||1);
   for(const p of this.particles||[]){
    const old=this.screen(p.lat,p.lon),v=this.wind(p.lat,p.lon);
    if(!v||!this.visible(old)||p.age++>180){Object.assign(p,this.seed(),{age:0});continue;}
