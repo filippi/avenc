@@ -597,8 +597,14 @@ def compress_dataarray(
         mask = np.isclose(arr, bitmask_value, equal_nan=False)
         bitmask_info = _encode_bitmask(mask)
 
+    # Quantized integers are right-aligned in the raw buffer. Declare their
+    # actual depth: gray16le -> gray12le conversion would discard four bits.
+    # Persist this option so full and lazy decoders request the same raw layout;
+    # packages without it retain the legacy decoder default.
+    raw_pixel_format = {8: "gray", 10: "gray10le", 12: "gray12le", 16: "gray16le"}[bits]
     encoder_options: Dict[str, Any] = {
         "bits": bits,
+        "pix_fmt": raw_pixel_format,
         "min_value": float(min_value),
         "max_value": float(max_value),
         "apply_log2": bool(apply_log2),
