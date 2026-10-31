@@ -8,7 +8,7 @@ uniform sampler2D valuesU,valuesV,colourRamp,earth,latitudeRows;
 uniform vec2 centre,viewport;uniform float radius,dpr;
 uniform vec3 basisRight,basisUp,basisFront;
 uniform ivec2 gridSize;uniform int latitudeRowCount;uniform vec4 gridAxes;
-uniform bool cyclic,hasV,logScale,rain,showEarth,lightEarth,hasField,irregularLatitude;
+uniform bool cyclic,hasV,logScale,rain,showEarth,lightEarth,hasField,irregularLatitude,highContrast;
 uniform vec2 limits,conversion;uniform float opacity;
 uniform vec2 probe;uniform bool showProbe;
 out vec4 pixel;
@@ -36,9 +36,11 @@ void main(){
    if(hasV)v=length(vec2(v,texelFetch(valuesV,ivec2(i,j),0).r));
    v=v*conversion.x+conversion.y;
    if(!isnan(v)&&!isinf(v)&&!(rain&&v<.05)){
-    float q=logScale?log(1.+max(0.,v))/log(1.+limits.y):(v-limits.x)/(limits.y-limits.x);
+    float span=max(limits.y-limits.x,1e-30),q=(v-limits.x)/span;
+    if(logScale){float knee=span/100.;if(limits.x<0.&&limits.y>0.){float a=sign(limits.x)*log(1.+abs(limits.x)/knee),b=sign(limits.y)*log(1.+abs(limits.y)/knee);q=(sign(v)*log(1.+abs(v)/knee)-a)/(b-a);}else q=log(1.+max(0.,v-limits.x)/knee)/log(101.);}
+    q=clamp(q,0.,1.);
     vec3 c=texelFetch(colourRamp,ivec2(int(floor(clamp(q,0.,1.)*255.+.5)),0),0).rgb;
-    colour=mix(base,c,opacity);
+    colour=mix(base,c,opacity*(highContrast&&limits.x>=0.?smoothstep(.1,.18,q):1.));
    }
   }
  }
@@ -119,7 +121,7 @@ export class AvencGlobe{
  clear(){this.current=null;this.clearFlow();if(this.active)this.draw();}
  clearFlow(){const ctx=this.flow.getContext('2d');ctx.resetTransform();ctx.clearRect(0,0,this.flow.width,this.flow.height);}
  async loadEarth(){
-  try{const response=await fetch(new URL('../data/ne_110m_land.geojson',import.meta.url));if(!response.ok)throw new Error('Coastline background unavailable');const data=await response.json();if(this.destroyed)return;const c=document.createElement('canvas');c.width=2048;c.height=1024;const ctx=c.getContext('2d');ctx.fillStyle='#0f293b';ctx.fillRect(0,0,c.width,c.height);ctx.fillStyle='#294956';ctx.strokeStyle='#9fb9bc';ctx.lineWidth=.65;
+  try{const response=await fetch(new URL('../data/ne_110m_land.geojson',import.meta.url));if(!response.ok)throw new Error('Coastline background unavailable');const data=await response.json();if(this.destroyed)return;const c=document.createElement('canvas');c.width=2048;c.height=1024;const ctx=c.getContext('2d');ctx.fillStyle='#070809';ctx.fillRect(0,0,c.width,c.height);ctx.fillStyle='#303236';ctx.strokeStyle='#53565a';ctx.lineWidth=.65;
    for(const feature of data.features){const polys=feature.geometry.type==='Polygon'?[feature.geometry.coordinates]:feature.geometry.coordinates;for(const rings of polys){ctx.beginPath();for(const ring of rings){ring.forEach(([lon,lat],i)=>{const x=(lon+180)/360*c.width,y=(90-lat)/180*c.height;i?ctx.lineTo(x,y):ctx.moveTo(x,y);});ctx.closePath();}ctx.fill('evenodd');ctx.stroke();}}
    const gl=this.gl;gl.activeTexture(gl.TEXTURE3);gl.bindTexture(gl.TEXTURE_2D,this.textures[3]);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,c);this.earthReady=true;if(this.active)this.draw();
   }catch(e){this.earthError=e.message;}
@@ -128,7 +130,7 @@ export class AvencGlobe{
   if(!this.active||!this.width||this.gl.isContextLost())return;const gl=this.gl,c=this.config||{range:[0,1],factor:1,offset:0},g=this.geometry||{nx:1,ny:1,lat0:0,lon0:0,dx:1,dy:1};gl.useProgram(this.program);gl.viewport(0,0,this.canvas.width,this.canvas.height);
   this.basis=globeBasis(this.lat,this.lon);const f=(n,v)=>gl.uniform1f(this.location(n),v),b=(n,v)=>gl.uniform1i(this.location(n),v?1:0),v2=(n,x,y)=>gl.uniform2f(this.location(n),x,y);
   v2('centre',this.cx,this.cy);v2('viewport',this.width,this.height);f('radius',this.radius);f('dpr',this.dpr);for(const [n,v] of [['basisRight',this.basis.right],['basisUp',this.basis.up],['basisFront',this.basis.front]])gl.uniform3fv(this.location(n),v);
-  gl.uniform2i(this.location('gridSize'),g.nx,g.ny);gl.uniform4f(this.location('gridAxes'),g.lat0,g.lon0,g.dx,g.dy);gl.uniform1i(this.location('latitudeRowCount'),this.latitudeLookupSize||1);b('irregularLatitude',Boolean(g.latitudes));b('cyclic',g.cyclic);b('hasField',this.current);b('hasV',this.current?.v);b('logScale',c.log);b('rain',this.settings?.rain);b('showEarth',this.settings?.basemap!=='none');b('lightEarth',this.settings?.basemap==='streets');v2('limits',...c.range);v2('conversion',c.factor,c.offset);f('opacity',this.settings?.opacity??.78);b('showProbe',this.pickPoint);v2('probe',this.pickPoint?.lat||0,this.pickPoint?.lng||0);
+  gl.uniform2i(this.location('gridSize'),g.nx,g.ny);gl.uniform4f(this.location('gridAxes'),g.lat0,g.lon0,g.dx,g.dy);gl.uniform1i(this.location('latitudeRowCount'),this.latitudeLookupSize||1);b('irregularLatitude',Boolean(g.latitudes));b('cyclic',g.cyclic);b('hasField',this.current);b('hasV',this.current?.v);b('logScale',c.log);b('highContrast',this.settings?.highContrast);b('rain',this.settings?.rain);b('showEarth',this.settings?.basemap!=='none');b('lightEarth',this.settings?.basemap==='streets');v2('limits',...c.range);v2('conversion',c.factor,c.offset);f('opacity',this.settings?.opacity??.78);b('showProbe',this.pickPoint);v2('probe',this.pickPoint?.lat||0,this.pickPoint?.lng||0);
   gl.drawArrays(gl.TRIANGLES,0,6);this.drawArrows();
  }
  wind(lat,lon){if(!this.current?.v)return null;const k=gridIndex(this.geometry,lat,lon);if(k<0)return null;const u=this.current.u[k],v=this.current.v[k];return Number.isFinite(u)&&Number.isFinite(v)?[u,v]:null;}

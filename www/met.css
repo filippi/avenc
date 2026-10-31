@@ -30,3 +30,6 @@ dialog{width:min(580px,calc(100vw - 24px));max-height:calc(100dvh - 40px);color:
 .timeline{grid-template-columns:210px 1fr}.lead{width:70px}.time-ticks{margin-right:73px}
 #dateJump{display:block;font:inherit;font-size:10px;padding:1px 4px;margin-top:3px;width:126px;color:var(--accent);background:#102331;border:1px solid var(--line);border-radius:4px;color-scheme:dark}#dateJump[hidden]{display:none}
 @media(max-width:760px){.timeline{display:block}.time-top>div:first-child{display:flex;align-items:center;gap:8px}.valid-time{font-size:11px}#dateJump{font-size:9px;width:113px;margin:0}.lead{width:62px}.time-ticks{margin-right:65px}.time-ticks span:nth-child(3){display:none}}
+
+/* Neutral geography keeps low-valued colour fields from tinting the whole map. */
+#map{background:#070809}.scale-note{font-size:7px;letter-spacing:.6px;color:var(--muted);margin-top:-7px;margin-bottom:9px}

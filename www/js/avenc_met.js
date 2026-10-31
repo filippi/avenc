@@ -1,3 +1,4 @@
+import {colourPosition,colourValue,colourOpacity} from './avenc_colour_scale.js';
 import { referenceTime, timelineInfo, formatTime, tickLabel, positionLabel } from './avenc_timeline.js';
 import { zip } from 'https://cdn.jsdelivr.net/npm/fflate@0.8.2/esm/browser.js';
 import { accessExamples } from './avenc_access.js';
@@ -13,10 +14,15 @@ const cataloguePromise=fetch(new URL('../data/ifs_variables.json',import.meta.ur
 const model=new AvencRangeModel({assumeGlobal:query.get('grid')==='global'}),map=L.map('map',{zoomControl:false,worldCopyJump:false,minZoom:2,maxZoom:10}).setView([46,5],4);
 L.control.zoom({position:'topright'}).addTo(map);const scaleControl=L.control.scale({position:'bottomleft',imperial:false}).addTo(map);
 map.createPane('weather');map.getPane('weather').style.zIndex=420;
-let base,labels;
+let base,labels,landPromise,baseVersion=0;
 function basemap(kind){
+  const version=++baseVersion;
   if(base)map.removeLayer(base);if(labels)map.removeLayer(labels);base=labels=null;
   if(kind==='none'||model.geometry?.native||globeMode)return;
+  if(kind==='dark'){
+    landPromise??=fetch(new URL('../data/ne_110m_land.geojson',import.meta.url)).then(r=>{if(!r.ok)throw Error('Land background unavailable');return r.json();});
+    landPromise.then(data=>{if(version!==baseVersion)return;base=L.geoJSON(data,{interactive:false,style:{color:'#53565a',weight:.6,fillColor:'#303236',fillOpacity:1},attribution:'Land: Natural Earth'}).addTo(map);base.bringToBack();}).catch(()=>{});return;
+  }
   const attribution='© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
   map.getPane('tilePane').classList.toggle('dark-base',kind==='dark');
   base=L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution,maxZoom:19}).addTo(map);
@@ -29,13 +35,14 @@ function tell(text,error=false){$('messageText').textContent=text;$('message').c
 function bytes(n){return n>=1e6?(n/1e6).toFixed(2)+' MB':(n/1024).toFixed(1)+' KB';}
 function network(t){$('network').textContent=`${bytes(t.bytes)} transferred · HTTP Range`;}
 const date=formatTime;
-function palette(config){const stops=PALETTES[config.palette]||PALETTES.wind;return Array.from({length:256},(_,i)=>{const x=i/255*(stops.length-1),a=Math.floor(x),b=Math.min(a+1,stops.length-1),t=x-a;return stops[a].map((v,j)=>Math.round(v*(1-t)+stops[b][j]*t));});}
-function normalized(v,c){return Math.max(0,Math.min(1,c.log?Math.log1p(Math.max(0,v))/Math.log1p(c.range[1]):(v-c.range[0])/(c.range[1]-c.range[0])));}
+let logOverride=null;
+function palette(config){let stops=PALETTES[config.palette]||PALETTES.wind;if($('highContrast').checked&&config.range[0]>=0)stops=[[4,5,7],...stops.slice(1)];return Array.from({length:256},(_,i)=>{const q=i/255,x=($('highContrast').checked&&config.range[0]>=0?Math.sqrt(Math.max(0,(q-.1)/.9)):q)*(stops.length-1),a=Math.floor(x),b=Math.min(a+1,stops.length-1),t=x-a;return stops[a].map((v,j)=>Math.round(v*(1-t)+stops[b][j]*t));});}
+const normalized=colourPosition;
 function updateLegend(){
-  const c=activeConfig,canvas=$('legend'),ctx=canvas.getContext('2d'),colors=palette(c),image=ctx.createImageData(canvas.width,canvas.height);
+  const c=activeConfig;$('legend').title=c.log?'Logarithmic color scale (signed for fields spanning zero)':'Linear color scale';$('scaleNote').textContent=c.log?'LOG SCALE':'LINEAR';const canvas=$('legend'),ctx=canvas.getContext('2d'),colors=palette(c),image=ctx.createImageData(canvas.width,canvas.height);
   for(let y=0;y<canvas.height;y++)for(let x=0;x<canvas.width;x++){const k=(y*canvas.width+x)*4,rgb=colors[Math.round((1-y/(canvas.height-1))*255)];image.data.set([...rgb,255],k);}ctx.putImageData(image,0,0);
   $('legendTitle').textContent=c.title==='Wind'?'Wind speed':c.title;$('legendUnit').textContent=c.unit;
-  $('legendTicks').replaceChildren(...(c.ticks||[c.range[0],(c.range[0]+c.range[1])/2,c.range[1]]).map(v=>{const el=document.createElement('span');el.textContent=Number(v.toPrecision(3));el.style.top=(100*(1-normalized(v,c)))+'%';el.style.transform='translateY(-50%)';return el;}));
+  $('legendTicks').replaceChildren(...(c.log?[0,.25,.5,.75,1].map(q=>colourValue(q,c)):(c.ticks||[c.range[0],(c.range[0]+c.range[1])/2,c.range[1]])).map(v=>{const el=document.createElement('span');el.textContent=Number(v.toPrecision(3));el.style.top=(100*(1-normalized(v,c)))+'%';el.style.transform='translateY(-50%)';return el;}));
 }
 const Weather=L.Layer.extend({
   onAdd(m){this._map=m;this.canvas=L.DomUtil.create('canvas','met-canvas');this.flow=L.DomUtil.create('canvas','met-canvas');m.getPane('weather').append(this.canvas,this.flow);this.render=this.render.bind(this);m.on('moveend resize zoomend',this.render);m.on('movestart',this.hide,this);m.on('moveend',this.show,this);this.render();this.last=0;this.animate=this.animate.bind(this);this.raf=requestAnimationFrame(this.animate);},
@@ -55,7 +62,7 @@ const Weather=L.Layer.extend({
       const i=this.cols[x],j=this.rows[y];if(i<0||j<0)continue;const k=j*geo.nx+i;
       let v=current.v?Math.hypot(current.u[k],current.v[k]):current.u[k];v=v*activeConfig.factor+activeConfig.offset;if(!Number.isFinite(v))continue;
       const rgb=colors[Math.round(normalized(v,activeConfig)*255)],off=(y*this.width+x)*4;
-      im.data.set(rgb,off);im.data[off+3]=(field==='rain'&&v<.05)?0:Math.round(Number($('opacity').value)*2.55);
+      im.data.set(rgb,off);im.data[off+3]=(field==='rain'&&v<.05)?0:Math.round(Number($('opacity').value)*2.55*colourOpacity(normalized(v,activeConfig),activeConfig,$('highContrast').checked));
     }
     ctx.putImageData(im,0,0);if(resized||!this.particles)this.particles=Array.from({length:Math.min(750,Math.floor(this.width*this.height/500))},()=>({x:Math.random()*this.width,y:Math.random()*this.height,age:Math.random()*90}));if(!current.v)this.flow.getContext('2d').clearRect(0,0,this.width,this.height);this.drawArrows();updateNativeAxes();
   },
@@ -151,6 +158,7 @@ function setHeadings(){
     if($('level').value==='surface'&&!surface){const preferred=[...$('level').options].find(o=>o.value==='850')||[...$('level').options].find(o=>o.value!=='surface');if(preferred)$('level').value=preferred.value;}
   }
   activeConfig=custom?configForView(custom):['wind','currents'].includes(field)?{...FIELDS[field]}:configForView(currentViews()[0]);
+  activeConfig.log=logOverride??Boolean(activeConfig.log);$('logScale').checked=activeConfig.log;
   if(!custom)activeConfig.description=FIELDS[field].description;
   if(activeConfig.unit==='°C'&&((custom?.kind==='isobaricInhPa')||(!custom&&$('level').value!=='surface'))){activeConfig.range=[-85,35];activeConfig.ticks=[-80,-40,0,35];}
   $('fieldTitle').textContent=activeConfig.title;
@@ -274,6 +282,7 @@ $('level').onchange=()=>{if(custom){const v=views.find(v=>v.name===custom.name&&
 $('allFields').onchange=()=>{if(!$('allFields').value)return;closeMobilePanel();stop();resetSources();const t=frames[index]?.ms;custom=views.find(v=>v.key===$('allFields').value);setHeadings();if(updateFrames(t))render();};
 $('time').oninput=()=>{stop();index=Number($('time').value);render();};$('previous').onclick=()=>{stop();step(-1);};$('next').onclick=()=>{stop();step(1);};
 $('play').onclick=()=>startPlay(1);$('playReverse').onclick=()=>startPlay(-1);
+$('logScale').onchange=()=>{logOverride=$('logScale').checked;activeConfig.log=logOverride;updateLegend();weather.render();};$('highContrast').onchange=()=>{updateLegend();weather.render();};
 $('opacity').oninput=()=>weather.render();$('arrows').onchange=()=>weather.render();$('flow').onchange=()=>weather.render();$('basemap').onchange=()=>{basemap($('basemap').value);weather.render();};
 $('home').onclick=()=>globeMode?globe.setView(46,5,1):model.geometry?.native?fitNative():map.setView([46,5],4);$('world').onclick=()=>globeMode?globe.setView(0,0,.9):model.geometry?.native?fitNative():map.setView([20,0],2);
 $('closeProbe').onclick=()=>{if(globe){globe.pickPoint=null;if(globeMode)globe.draw();}point=null;$('probe').hidden=true;if(marker)map.removeLayer(marker);marker=null;};map.on('click',e=>handleMapPick(e.latlng));
@@ -306,7 +315,7 @@ function updateViewButton(){
 }
 function updateGlobe(){
   if(!globe)return;if(!current){globe.clear();return;}
-  try{globe.setField(current,model.geometry,activeConfig,palette(activeConfig),{opacity:Number($('opacity').value)/100,flow:$('flow').checked,arrows:$('arrows').checked,basemap:$('basemap').value,rain:field==='rain',motionScale:activeConfig.motionScale||1});}catch(e){if(viewBusy)throw e;setGlobeMode(false);tell(e.message,true);}
+  try{globe.setField(current,model.geometry,activeConfig,palette(activeConfig),{opacity:Number($('opacity').value)/100,highContrast:$('highContrast').checked,flow:$('flow').checked,arrows:$('arrows').checked,basemap:$('basemap').value,rain:field==='rain',motionScale:activeConfig.motionScale||1});}catch(e){if(viewBusy)throw e;setGlobeMode(false);tell(e.message,true);}
 }
 async function setGlobeMode(enabled){
   if(enabled===globeMode||viewBusy)return;if(enabled&&(!current||model.geometry?.native))return;

@@ -423,3 +423,19 @@ metadata always wins. Known projected grids and unsupported scan layouts stay in
 native mode. Add `&grid=global` to a dataset URL to explicitly request the assumed
 global fallback if recognition fails; the badge and NPZ metadata record that
 assumption. Do not use guessed coordinates as scientific georeferencing.
+
+### Color display
+
+The default dark background uses local Natural Earth land outlines: black oceans
+and dark-gray continents. Streets remains available. High contrast is enabled by
+default, with 92% maximum layer opacity. For nonnegative fields it fades the
+lowest tenth of the displayed color scale into the background, then strengthens
+the remaining palette; signed fields keep their diverging palette. Disable
+**High contrast** in **More** to restore the ordinary palette and uniform opacity.
+
+**Log color scale** is a display-only, zero-safe log1p transform with a knee at
+1% of the displayed range. Fields spanning zero use a signed log transform; other
+fields use a transform shifted by the lower range bound. Legend tick positions
+and labels use the same transform as the map and globe. The toggle applies to
+subsequent selected fields; downloaded values, units, masks and encoded data do
+not change. These controls do not request another MP4 frame.
