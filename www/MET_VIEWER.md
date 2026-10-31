@@ -439,3 +439,12 @@ fields use a transform shifted by the lower range bound. Legend tick positions
 and labels use the same transform as the map and globe. The toggle applies to
 subsequent selected fields; downloaded values, units, masks and encoded data do
 not change. These controls do not request another MP4 frame.
+
+### Native luma range
+
+WebCodecs exposes Y samples with the decoded frame's `colorSpace.fullRange`
+flag. Limited-range frames require studio-to-full-range expansion before AVENC
+storage-shift handling, bitmap code removal and inverse scientific transforms.
+The map reader applies this for 8-, 10- and 12-bit Y planes; full-range samples
+retain their existing conversion. This prevents large signed-field biases in
+limited-range AV1/SVT files. The color-scale controls operate afterward.

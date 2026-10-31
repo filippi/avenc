@@ -174,7 +174,13 @@ export function gribAxes(template){
 }
 // Match FFmpeg's full-range 10/12-bit -> gray16 bit replication before
 // applying the metadata's storage shift (not an RGB color conversion).
-export function lumaStorageCode(raw,nativeBits,storedBits){
+export function lumaStorageCode(raw,nativeBits,storedBits,fullRange=true){
+  // WebCodecs returns native Y codes, not FFmpeg's full-range gray output.
+  // Expand studio-range Y (16..235 at 8 bits) before scientific dequantization.
+  if(fullRange===false){
+    const factor=2**(nativeBits-8),fraction=(raw-16*factor)/(219*factor);
+    return Math.round(Math.max(0,Math.min(1,fraction))*(2**storedBits-1));
+  }
   const shift=storedBits-nativeBits;
   if(shift===0)return raw;
   if(shift<0)return Math.floor(raw/2**(-shift));

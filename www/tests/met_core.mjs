@@ -61,3 +61,11 @@ const noGDS=grib1();noGDS[15]=0;assert.equal(gribAxes(encoded(noGDS)),null);
 const inconsistent=grib1();inconsistent[36+19]=0;assert.equal(gribAxes(encoded(inconsistent)),null);
 assert.equal(streamGeometry({options:{crop_width:4,crop_height:3,template_b64:encoded(grib1())}}).native,true);
 console.log('PASS: GRIB1 ERA5-Land geometry, signed coordinates, both scan directions, dateline wrapping, unsupported/truncated grids and dimension checks.');
+
+// Native WebCodecs Y is still limited-range when fullRange is false.
+for(const bits of [8,10,12]){const f=2**(bits-8);assert.equal(lumaStorageCode(16*f,bits,16,false),0);assert.equal(lumaStorageCode(235*f,bits,16,false),65535);assert.equal(lumaStorageCode(0,bits,16,false),0);assert.equal(lumaStorageCode(2**bits-1,bits,16,false),65535);}
+assert.equal(lumaStorageCode(866,10,16,false),59999);
+assert.equal(lumaStorageCode(859,10,16,false),59475);
+assert.equal(lumaStorageCode(512,10,16,true),32800);
+assert.equal(lumaStorageCode(64,10,16,false),0);
+console.log('PASS: limited/full video range, 8/10/12-bit black/white endpoints, clipping and FFmpeg gray16 reference samples.');

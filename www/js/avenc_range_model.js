@@ -147,7 +147,7 @@ export class AvencRangeModel extends AvencModel {
           // Native decoder reads gray16 for shifted legacy streams. WebCodecs
           // exposes 10/12-bit right-aligned codes instead; restore that storage
           // representation before applying AVENC's recorded storage shift.
-          const stored=lumaStorageCode(raw,nativeBits,targetBits+Number(o.storage_shift||0));
+          const stored=lumaStorageCode(raw,nativeBits,targetBits+Number(o.storage_shift||0),fr.frame.colorSpace?.fullRange);
           values[k]=decodeValue(stored,targetBits,bounds,o,hasBitmap,Boolean(mask?.[k]));
         }
         while(this.gridCache.size>=6)this.gridCache.delete(this.gridCache.keys().next().value);
