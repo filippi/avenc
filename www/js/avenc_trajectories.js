@@ -5,7 +5,7 @@ const RAD=Math.PI/180,R=6371000;
 export const wrapLon=x=>((x+180)%360+360)%360-180;
 export function sampleVelocity(g,u,v,lat,lon){
  if(g.native||!Number.isFinite(lat)||!Number.isFinite(lon))return null;
- let x=(lon-g.lon0)/g.dx,y=(lat-g.lat0)/g.dy;
+ let x=(lon-g.lon0)/g.dx,y=g.rowAtLatitude?g.rowAtLatitude(lat):(lat-g.lat0)/g.dy;
  if(g.cyclic)x=((x%g.nx)+g.nx)%g.nx;
  if(x<0||y<0||x>g.nx-1&&!g.cyclic||y>g.ny-1)return null;
  const i=Math.floor(x),j=Math.floor(y),fx=x-i,fy=y-j;

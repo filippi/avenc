@@ -40,7 +40,7 @@ export class ByteRanges {
 }
 
 export class AvencRangeModel extends AvencModel {
-  constructor(){super([]);this.transport=null;this.gridCache=new Map();this.packetCache=new Map();this.packetBytes=0;this.queue=Promise.resolve();}
+  constructor({assumeGlobal=false}={}){super([]);this.assumeGlobal=assumeGlobal;this.transport=null;this.gridCache=new Map();this.packetCache=new Map();this.packetBytes=0;this.queue=Promise.resolve();}
   async open(url,signal,onProgress){
     this.close();this.gridCache.clear();this.packetCache.clear();this.packetBytes=0;
     this.transport=new ByteRanges(url,onProgress);this.currentDataset=url;
@@ -58,7 +58,7 @@ export class AvencRangeModel extends AvencModel {
     // No media payload has been downloaded at this point.
     return this;
   }
-  geometryForGroup(group){return group._mapGeometry ||= streamGeometry(group);}
+  geometryForGroup(group){return group._mapGeometry ||= streamGeometry(group,{assumeGlobal:this.assumeGlobal});}
   async supported(group){
     const track=this.videoTracks[Number(group.stream_index)];
     if(!globalThis.VideoDecoder||!track)return false;

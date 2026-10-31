@@ -71,7 +71,7 @@ The new reader in `js/avenc_range_model.js`:
    It does not reconstruct values from RGB or silently downconvert bit depth.
 5. Uses GRIB1 GDS representation 0 or GRIB2 template 3.0 scan flags/increments for regular grid geometry. This
    handles the IFS grid starting at 180 E and wrapping to 179.75 E correctly.
-   Other definitions fall back to native row/column indices, without geographic positioning.
+   Full regular Gaussian grids (GRIB1 representation 4 / GRIB2 template 3.40) use the actual Gaussian parallels and longitude origin, including 180 E. Other recognized projections retain native row/column positioning.
 6. Keeps at most six Float32 grids, two decoded VideoFrames, and a 32 MiB
    compressed GOP cache. Metadata/index memory is additional. A single movie
    index or selected GOP larger than 64 MiB is rejected. One next-time compressed
@@ -89,7 +89,7 @@ The point inspector retains the reconstructed physical value.
 The viewer requires GRIB-packed AVENC v2 files with an ordinary, nonfragmented
 MP4 index. Recognized regular latitude/longitude grids use a geographic map;
 other definitions or scanning modes use the stored raster with row/column
-axes. It does not reproject rotated, projected or Gaussian grids, infer
+axes. It supports full regular Gaussian grids up to 8,192 latitude rows; it does not reproject rotated or other projected grids, infer
 geographic wind directions, or overlay heterogeneous grids. Selecting another
 stream can change the active grid and reset the view to its extent.
 
@@ -405,3 +405,21 @@ preserved missing cells, 3D switching without refetching, time stepping and mobi
 layout. GRIB1 rotated/projected/reduced grids, missing explicit increments and
 unsupported scanning retain the native-grid fallback. No source conversion or
 recompression is needed.
+
+
+## Gaussian grids and missing-geometry fallback
+
+POF uses a full regular Gaussian grid: 5,136 columns, 2,560 parallels (N1280),
+with the first longitude at 180 E. Latitude values are computed as roots of the
+appropriate Legendre polynomial, rather than evenly spaced rows. Both 2D picking
+and 3D texture sampling use that latitude axis; NPZ exports contain the same
+actual coordinates. There is no data resampling, backend conversion or MP4 rewrite.
+
+When no recognizable GRIB template is available and the raster has plausible
+global dimensions (at least 360x180 and approximately 2:1), the viewer attempts
+an explicitly labelled north-first global lat/lon map with a 0 E longitude origin.
+This is a visualization assumption, not verified georeferencing. Existing valid
+metadata always wins. Known projected grids and unsupported scan layouts stay in
+native mode. Add `&grid=global` to a dataset URL to explicitly request the assumed
+global fallback if recognition fails; the badge and NPZ metadata record that
+assumption. Do not use guessed coordinates as scientific georeferencing.

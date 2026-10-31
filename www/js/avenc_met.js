@@ -9,7 +9,7 @@ const $=id=>document.getElementById(id),query=new URLSearchParams(location.searc
 let datasetCatalogue=null,exportBusy=false,globe=null,globeMode=false,viewBusy=false,initialViewApplied=false;
 let catalogue=null,catalogueError='';
 const cataloguePromise=fetch(new URL('../data/ifs_variables.json',import.meta.url)).then(async r=>{if(!r.ok)throw new Error('Variable catalogue unavailable');const c=await r.json();if(c.schema!=='ecflix.variables.v1')throw new Error('Invalid variable catalogue');return c;}).catch(e=>{catalogueError=e.message;return null;});
-const model=new AvencRangeModel(),map=L.map('map',{zoomControl:false,worldCopyJump:false,minZoom:2,maxZoom:10}).setView([46,5],4);
+const model=new AvencRangeModel({assumeGlobal:query.get('grid')==='global'}),map=L.map('map',{zoomControl:false,worldCopyJump:false,minZoom:2,maxZoom:10}).setView([46,5],4);
 L.control.zoom({position:'topright'}).addTo(map);const scaleControl=L.control.scale({position:'bottomleft',imperial:false}).addTo(map);
 map.createPane('weather');map.getPane('weather').style.zIndex=420;
 let base,labels;
@@ -88,10 +88,10 @@ function fitNative(){
 }
 function configureGeometry(g){
   if(g.native&&globeMode)setGlobeMode(false);
-  const key=JSON.stringify([g.native,g.nx,g.ny,g.lat0,g.lon0,g.dx,g.dy]);if(key===viewGeometryKey)return;viewGeometryKey=key;
+  const key=JSON.stringify([g.native,g.nx,g.ny,g.lat0,g.lon0,g.dx,g.dy,g.kind,g.assumed]);if(key===viewGeometryKey)return;viewGeometryKey=key;
   current=null;point=null;$('probe').hidden=true;if(marker){map.removeLayer(marker);marker=null;}
   basemap('none');model.geometry=g;map.options.zoomSnap=g.native?0:1;map.options.zoomDelta=g.native ? 0.5 : 1;map.options.crs=g.native?L.CRS.Simple:L.CRS.EPSG3857;map.setMinZoom(g.native?-8:2);
-  document.body.classList.toggle('native-grid',g.native);$('nativeNotice').hidden=!g.native;$('nativeAxes').hidden=!g.native;
+  document.body.classList.toggle('native-grid',g.native);$('nativeNotice').hidden=!g.native&&!g.assumed;$('nativeNotice').textContent=g.native?'Native grid — geographical positioning unavailable':'Assumed global lat/lon · 0°E origin · positioning unverified';$('nativeAxes').hidden=!g.native;
   for(const id of ['basemap','flow','arrows']){$(id).disabled=g.native;$(id).title=g.native?'Unavailable in native-grid view':'';}
   $('home').title=$('world').title=g.native?'Fit native grid':'Reset map';
   $('home').setAttribute('aria-label',g.native?'Fit native grid':'Return to Europe');$('world').setAttribute('aria-label',g.native?'Fit native grid':'Show the world');
@@ -100,7 +100,7 @@ function configureGeometry(g){
     map.setView([0,0],0,{reset:true});fitNative();
     if(query.has('grid_row')&&query.has('grid_column')){const row=Number(query.get('grid_row')),col=Number(query.get('grid_column')),zoom=Number(query.get('zoom'));if(Number.isFinite(row)&&Number.isFinite(col)&&Number.isFinite(zoom))map.setView([-row,col],Math.max(-8,Math.min(10,zoom)),{reset:true});}
   }else{map.setView([46,5],4,{reset:true});scaleControl.addTo(map);basemap($('basemap').value);}
-  $('resolution').textContent=g.native?`NATIVE GRID · ${g.nx} × ${g.ny}`:`${Math.abs(g.dx).toFixed(2)}° GRID · ${g.nx} × ${g.ny}`;
+  $('resolution').textContent=g.native?`NATIVE GRID · ${g.nx} × ${g.ny}`:g.kind==='gaussian'?`GAUSSIAN N${g.gaussianN} · ${g.nx} × ${g.ny}`:`${g.assumed?'ASSUMED GLOBAL · ':''}${Math.abs(g.dx).toFixed(2)}° GRID · ${g.nx} × ${g.ny}`;
   updateNativeAxes();updateViewButton();
 }
 function updateNativeAxes(){

@@ -1,14 +1,14 @@
-import {gridIndex} from './avenc_met_core.js';
+import {gridIndex,latitudeRow} from './avenc_met_core.js';
 import {globeBasis,projectGlobe,pickGlobe,wrapLongitude} from './avenc_globe_math.js';
 const vertex=`#version 300 es
 in vec2 position;void main(){gl_Position=vec4(position,0.,1.);}`;
 const fragment=`#version 300 es
 precision highp float;precision highp int;
-uniform sampler2D valuesU,valuesV,colourRamp,earth;
+uniform sampler2D valuesU,valuesV,colourRamp,earth,latitudeRows;
 uniform vec2 centre,viewport;uniform float radius,dpr;
 uniform vec3 basisRight,basisUp,basisFront;
-uniform ivec2 gridSize;uniform vec4 gridAxes;
-uniform bool cyclic,hasV,logScale,rain,showEarth,lightEarth,hasField;
+uniform ivec2 gridSize;uniform int latitudeRowCount;uniform vec4 gridAxes;
+uniform bool cyclic,hasV,logScale,rain,showEarth,lightEarth,hasField,irregularLatitude;
 uniform vec2 limits,conversion;uniform float opacity;
 uniform vec2 probe;uniform bool showProbe;
 out vec4 pixel;
@@ -25,6 +25,10 @@ void main(){
  vec3 colour=base;
  if(hasField){
   float x=(lon-gridAxes.y)/gridAxes.z,y=(lat-gridAxes.x)/gridAxes.w;
+  if(irregularLatitude){
+    float t=clamp((90.-lat)/180.,0.,1.)*float(latitudeRowCount-1);int a=int(floor(t));
+    y=mix(texelFetch(latitudeRows,ivec2(a,0),0).r,texelFetch(latitudeRows,ivec2(min(a+1,latitudeRowCount-1),0),0).r,fract(t));
+  }
   if(cyclic)x=mod(mod(x,float(gridSize.x))+float(gridSize.x),float(gridSize.x));
   int i=int(floor(x+.5)),j=int(floor(y+.5));if(cyclic)i=i%gridSize.x;
   if(i>=0&&i<gridSize.x&&j>=0&&j<gridSize.y){
@@ -58,8 +62,8 @@ export class AvencGlobe{
   const gl=this.canvas.getContext('webgl2',{alpha:true,antialias:false,premultipliedAlpha:false,depth:false});if(!gl)throw new Error('3D requires WebGL 2. Use the 2D map on this device.');this.gl=gl;
   this.program=program(gl);this.uniforms=new Map();gl.useProgram(this.program);
   const buffer=this.buffer=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,buffer);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,-1,1,1,-1,1,1]),gl.STATIC_DRAW);const loc=gl.getAttribLocation(this.program,'position');gl.enableVertexAttribArray(loc);gl.vertexAttribPointer(loc,2,gl.FLOAT,false,0,0);
-  this.textures=Array.from({length:4},(_,i)=>{gl.activeTexture(gl.TEXTURE0+i);const t=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,t);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.NEAREST);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.NEAREST);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);if(i<2)gl.texImage2D(gl.TEXTURE_2D,0,gl.R32F,1,1,0,gl.RED,gl.FLOAT,new Float32Array([NaN]));else gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,1,1,0,gl.RGBA,gl.UNSIGNED_BYTE,new Uint8Array([16,35,48,255]));return t;});
-  ['valuesU','valuesV','colourRamp','earth'].forEach((n,i)=>gl.uniform1i(this.location(n),i));
+  this.textures=Array.from({length:5},(_,i)=>{gl.activeTexture(gl.TEXTURE0+i);const t=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,t);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.NEAREST);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.NEAREST);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);if(i<2||i===4)gl.texImage2D(gl.TEXTURE_2D,0,gl.R32F,1,1,0,gl.RED,gl.FLOAT,new Float32Array([NaN]));else gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,1,1,0,gl.RGBA,gl.UNSIGNED_BYTE,new Uint8Array([16,35,48,255]));return t;});
+  ['valuesU','valuesV','colourRamp','earth','latitudeRows'].forEach((n,i)=>gl.uniform1i(this.location(n),i));
   container.append(this.canvas,this.arrows,this.flow);this.resizeObserver=new ResizeObserver(()=>this.resize());this.resizeObserver.observe(container);
   this.canvas.addEventListener('webglcontextlost',e=>{e.preventDefault();this.onError('The 3D graphics context was lost. Returned to the 2D map.');});
   this.pointers=new Map();this.canvas.addEventListener('pointerdown',e=>{this.canvas.setPointerCapture(e.pointerId);this.pointers.set(e.pointerId,[e.clientX,e.clientY]);this.dragged=false;this.pinch=null;});
@@ -101,6 +105,11 @@ export class AvencGlobe{
  screen(lat,lon){const p=projectGlobe(lat,lon,this.basis);return {x:this.cx+p.x*this.radius,y:this.cy-p.y*this.radius,z:p.z};}
  setField(current,geometry,config,colours,settings){
   const gl=this.gl;if(geometry.native)throw new Error('3D needs geographic coordinates.');if(Math.max(geometry.nx,geometry.ny)>gl.getParameter(gl.MAX_TEXTURE_SIZE))throw new Error('This grid exceeds this device’s 3D texture limit. Use 2D.');
+  if(this.geometry!==geometry&&geometry.latitudes){
+    const count=this.latitudeLookupSize=Math.min(4096,gl.getParameter(gl.MAX_TEXTURE_SIZE));
+    const rows=Float32Array.from({length:count},(_,i)=>latitudeRow(geometry,90-i*180/(count-1)));
+    gl.activeTexture(gl.TEXTURE4);gl.bindTexture(gl.TEXTURE_2D,this.textures[4]);gl.texImage2D(gl.TEXTURE_2D,0,gl.R32F,count,1,0,gl.RED,gl.FLOAT,rows);
+  }
   const reset=this.geometry!==geometry||!this.current?.v;this.current=current;this.geometry=geometry;this.config=config;this.settings=settings;
   for(const [i,a] of [[0,current?.u],[1,current?.v]])if(a&&a!==this.uploaded?.[i]){gl.activeTexture(gl.TEXTURE0+i);gl.bindTexture(gl.TEXTURE_2D,this.textures[i]);gl.texImage2D(gl.TEXTURE_2D,0,gl.R32F,geometry.nx,geometry.ny,0,gl.RED,gl.FLOAT,a);}
   this.uploaded=[current?.u,current?.v];gl.activeTexture(gl.TEXTURE2);gl.bindTexture(gl.TEXTURE_2D,this.textures[2]);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,256,1,0,gl.RGBA,gl.UNSIGNED_BYTE,new Uint8Array(colours.flatMap(c=>[...c,255])));
@@ -119,7 +128,7 @@ export class AvencGlobe{
   if(!this.active||!this.width||this.gl.isContextLost())return;const gl=this.gl,c=this.config||{range:[0,1],factor:1,offset:0},g=this.geometry||{nx:1,ny:1,lat0:0,lon0:0,dx:1,dy:1};gl.useProgram(this.program);gl.viewport(0,0,this.canvas.width,this.canvas.height);
   this.basis=globeBasis(this.lat,this.lon);const f=(n,v)=>gl.uniform1f(this.location(n),v),b=(n,v)=>gl.uniform1i(this.location(n),v?1:0),v2=(n,x,y)=>gl.uniform2f(this.location(n),x,y);
   v2('centre',this.cx,this.cy);v2('viewport',this.width,this.height);f('radius',this.radius);f('dpr',this.dpr);for(const [n,v] of [['basisRight',this.basis.right],['basisUp',this.basis.up],['basisFront',this.basis.front]])gl.uniform3fv(this.location(n),v);
-  gl.uniform2i(this.location('gridSize'),g.nx,g.ny);gl.uniform4f(this.location('gridAxes'),g.lat0,g.lon0,g.dx,g.dy);b('cyclic',g.cyclic);b('hasField',this.current);b('hasV',this.current?.v);b('logScale',c.log);b('rain',this.settings?.rain);b('showEarth',this.settings?.basemap!=='none');b('lightEarth',this.settings?.basemap==='streets');v2('limits',...c.range);v2('conversion',c.factor,c.offset);f('opacity',this.settings?.opacity??.78);b('showProbe',this.pickPoint);v2('probe',this.pickPoint?.lat||0,this.pickPoint?.lng||0);
+  gl.uniform2i(this.location('gridSize'),g.nx,g.ny);gl.uniform4f(this.location('gridAxes'),g.lat0,g.lon0,g.dx,g.dy);gl.uniform1i(this.location('latitudeRowCount'),this.latitudeLookupSize||1);b('irregularLatitude',Boolean(g.latitudes));b('cyclic',g.cyclic);b('hasField',this.current);b('hasV',this.current?.v);b('logScale',c.log);b('rain',this.settings?.rain);b('showEarth',this.settings?.basemap!=='none');b('lightEarth',this.settings?.basemap==='streets');v2('limits',...c.range);v2('conversion',c.factor,c.offset);f('opacity',this.settings?.opacity??.78);b('showProbe',this.pickPoint);v2('probe',this.pickPoint?.lat||0,this.pickPoint?.lng||0);
   gl.drawArrays(gl.TRIANGLES,0,6);this.drawArrows();
  }
  wind(lat,lon){if(!this.current?.v)return null;const k=gridIndex(this.geometry,lat,lon);if(k<0)return null;const u=this.current.u[k],v=this.current.v[k];return Number.isFinite(u)&&Number.isFinite(v)?[u,v]:null;}

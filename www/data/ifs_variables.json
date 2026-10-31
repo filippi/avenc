@@ -1,6 +1,6 @@
 {
   "schema": "ecflix.variables.v1",
-  "updated": "2026-10-24",
+  "updated": "2026-10-31",
   "context": {
     "centre": "ecmf",
     "grib_edition": 2,
@@ -9,7 +9,8 @@
   "sources": [
     "IFS source GRIB headers decoded with ecCodes 2.44.0",
     "https://github.com/ecmwf/eccodes/blob/develop/definitions/grib2/units.def",
-    "https://github.com/ecmwf/eccodes/blob/develop/definitions/grib2/localConcepts/ecmf/units.def"
+    "https://github.com/ecmwf/eccodes/blob/develop/definitions/grib2/localConcepts/ecmf/units.def",
+    "POF source GRIB headers decoded with ecCodes 2.45.0 (paramId 260565; units %)"
   ],
   "notes": [
     "Units are source-header units, not inferred from numeric ranges. Display conversions are explicit below.",
@@ -1200,6 +1201,35 @@
         "offset": 0,
         "palette": "wind",
         "auto": true,
+        "decimals": 2
+      }
+    },
+    "pof": {
+      "name": "Probability of fire detection",
+      "title": "Probability of fire",
+      "paramId": 260565,
+      "units": "%",
+      "match": {
+        "discipline": 2,
+        "parameterCategory": 4,
+        "parameterNumber": 43
+      },
+      "display": {
+        "unit": "%",
+        "factor": 1,
+        "offset": 0,
+        "range": [
+          0,
+          100
+        ],
+        "ticks": [
+          0,
+          25,
+          50,
+          75,
+          100
+        ],
+        "palette": "rain",
         "decimals": 2
       }
     }

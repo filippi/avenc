@@ -64,21 +64,65 @@ export function decodeValue(raw,bits,bounds,opts,hasBitmap,missing=false){
   else if(opts.apply_log2)value=2**value-Number(opts.log_offset??1);
   return value;
 }
-export function makeGeometry(lat,lon,nx,ny){
+export function makeGeometry(lat,lon,nx,ny,{gaussian=false,gaussianN}={}){
   if(lat.length!==ny||lon.length!==nx||nx<2||ny<2)throw new Error('This map needs a regular latitude/longitude grid with embedded coordinate axes.');
   const dy=(lat[ny-1]-lat[0])/(ny-1),dx=(lon[nx-1]-lon[0])/(nx-1);
-  if(!dy||!dx||lat.some((v,j)=>Math.abs(v-lat[0]-j*dy)>.002)||lon.some((v,i)=>Math.abs(v-lon[0]-i*dx)>.002))throw new Error('Only regular latitude/longitude grids are supported.');
+  if(!dy||!dx||(!gaussian&&lat.some((v,j)=>Math.abs(v-lat[0]-j*dy)>.002))||lon.some((v,i)=>Math.abs(v-lon[0]-i*dx)>.002))throw new Error('Only regular latitude/longitude grids are supported.');
   const cyclic=Math.abs(Math.abs(dx)*nx-360)<.01;
-  return {nx,ny,lat0:lat[0],lon0:lon[0],dx,dy,cyclic};
+  const geo={nx,ny,lat0:lat[0],lon0:lon[0],dx,dy,cyclic,kind:gaussian?'gaussian':'regular'};
+  if(gaussian){
+    if(lat.some((v,j)=>!Number.isFinite(v)||(j&&((v-lat[j-1])*dy<=0))))throw Error('Invalid Gaussian latitude order');
+    geo.latitudes=Array.from(lat);geo.gaussianN=gaussianN;geo.rowAtLatitude=value=>latitudeRow(geo,value);
+  }
+  return geo;
+}
+export function latitudeRow(geo,lat){
+  const a=geo.latitudes;if(!a)return (lat-geo.lat0)/geo.dy;
+  if(!Number.isFinite(lat)||Math.abs(lat)>90)return NaN;
+  const sign=a[a.length-1]>a[0]?1:-1,t=lat*sign;
+  if(t<=a[0]*sign)return 0;if(t>=a[a.length-1]*sign)return a.length-1;
+  let lo=0,hi=a.length-1;while(hi-lo>1){const mid=(lo+hi)>>1;if(a[mid]*sign<=t)lo=mid;else hi=mid;}
+  return lo+(lat-a[lo])/(a[hi]-a[lo]);
 }
 export function gridIndex(geo,lat,lon){
-  const j=Math.round((lat-geo.lat0)/geo.dy);
+  if(!Number.isFinite(lat)||!Number.isFinite(lon))return -1;
+  const j=Math.round(latitudeRow(geo,lat));
   let x=(lon-geo.lon0)/geo.dx;
   if(geo.cyclic)x=((x%geo.nx)+geo.nx)%geo.nx;
   const i=Math.round(x)% (geo.cyclic?geo.nx:Infinity);
-  return j<0||j>=geo.ny||i<0||i>=geo.nx?-1:j*geo.nx+i;
+  return !Number.isFinite(j)||j<0||j>=geo.ny||i<0||i>=geo.nx?-1:j*geo.nx+i;
 }
 export function vectorAt(geo,u,v,lat,lon){const k=gridIndex(geo,lat,lon);return k<0?null:{u:u[k],v:v[k],speed:Math.hypot(u[k],v[k])};}
+// Gaussian parallels are roots of P_(2N)(sin(latitude)), not an evenly spaced axis.
+const gaussianCache=new Map();
+export function gaussianLatitudes(count){
+  if(!Number.isInteger(count)||count<2||count>8192||count%2)throw Error('Invalid full Gaussian latitude count');
+  if(gaussianCache.has(count))return gaussianCache.get(count).slice();
+  const lat=new Array(count),half=count/2;
+  for(let i=0;i<half;i++){
+    let z=Math.cos(Math.PI*(i+.75)/(count+.5)),converged=false;
+    for(let iteration=0;iteration<16;iteration++){
+      let p=1,previous=0;
+      for(let k=1;k<=count;k++){const next=((2*k-1)*z*p-(k-1)*previous)/k;previous=p;p=next;}
+      const derivative=count*(z*p-previous)/(z*z-1),next=z-p/derivative;
+      if(Math.abs(next-z)<2e-15){z=next;converged=true;break;}z=next;
+    }
+    if(!converged)throw Error('Gaussian latitude calculation did not converge');
+    lat[i]=Math.asin(z)*180/Math.PI;lat[count-1-i]=-lat[i];
+  }
+  if(gaussianCache.size>=4)gaussianCache.delete(gaussianCache.keys().next().value);
+  gaussianCache.set(count,lat);return lat.slice();
+}
+function gaussianAxes(nx,ny,N,lat0,latEnd,lon0,lonEnd,di,scan,unit){
+  if(nx<2||ny!==2*N||nx===65535||nx===0xffffffff||scan&48)return null;
+  let lat=gaussianLatitudes(ny);if(scan&64)lat.reverse();
+  if(Math.abs(lat[0]-lat0)>Math.max(4*unit,2e-6)||Math.abs(lat[ny-1]-latEnd)>Math.max(4*unit,2e-6))return null;
+  const sign=scan&128?-1:1,delta=(lonEnd-lon0)*sign,span=((delta%360)+360)%360;
+  const exact=360/nx,error=((lon0+sign*(nx-1)*exact-lonEnd+180)%360+360)%360-180;
+  const dx=Math.abs(error)<=Math.max(4*unit,2e-6)?sign*exact:sign*di;
+  if(!Number.isFinite(dx)||!dx||span<1)return null;
+  return {lat,lon:Array.from({length:nx},(_,i)=>lon0+i*dx),gaussian:true,gaussianN:N};
+}
 // GRIB1 GDS representation 0: regular, unrotated latitude/longitude.
 // https://codes.ecmwf.int/grib/format/grib1/grids/0/
 function grib1Axes(b,d){
@@ -86,11 +130,15 @@ function grib1Axes(b,d){
   if(b.length<16)return null;
   const pds=u24(8),p=8+pds;
   if(pds<8||p+32>b.length||!(b[15]&128))return null;
-  const length=u24(p);if(length<32||p+length>b.length||b[p+5]!==0)return null;
+  const length=u24(p);if(length<32||p+length>b.length||![0,4].includes(b[p+5]))return null;
   const nx=d.getUint16(p+6),ny=d.getUint16(p+8),scan=b[p+27];
   // Reduced grids and unusual scan layouts must retain the native-raster fallback.
   if(nx<2||ny<2||nx===65535||ny===65535)return null;
   if(scan&48)throw new Error('Alternating or column-consecutive GRIB scanning is not supported by this map.');
+  if(b[p+5]===4){
+    const signed=off=>{const v=u24(p+off);return ((v&0x800000)?-(v&0x7fffff):v)/1000;};
+    return gaussianAxes(nx,ny,d.getUint16(p+25),signed(10),signed(17),signed(13),signed(20),d.getUint16(p+23)/1000,scan,.001);
+  }
   const di=d.getUint16(p+23),dj=d.getUint16(p+25);
   if(!(b[p+16]&128)||!di||!dj||di===65535||dj===65535)return null;
   const signed=off=>{const v=u24(p+off);return ((v&0x800000)?-(v&0x7fffff):v)/1000;};
@@ -112,12 +160,13 @@ export function gribAxes(template){
   while(p+14<=b.length){
     const n=d.getUint32(p);if(n<5||p+n>b.length)break;
     if(b[p+4]===3){
-      if(d.getUint16(p+12)!==0||n<72)return null;
+      const type=d.getUint16(p+12);if(![0,40].includes(type)||n<72)return null;
       const signed=off=>{const v=d.getUint32(p+off);return (v&0x80000000)?-(v&0x7fffffff):v;};
       const nx=d.getUint32(p+30),ny=d.getUint32(p+34),basic=d.getUint32(p+38),sub=d.getUint32(p+42);
       const unit=basic&&basic!==0xffffffff&&sub&&sub!==0xffffffff?basic/sub:1e-6;
       const scan=b[p+71];if(scan&48)throw new Error('Alternating or column-consecutive GRIB scanning is not supported by this map.');
       const lat0=signed(46)*unit,lon0=signed(50)*unit;
+      if(type===40)return gaussianAxes(nx,ny,d.getUint32(p+67),lat0,signed(55)*unit,lon0,signed(59)*unit,d.getUint32(p+63)*unit,scan,unit);
       const dx=d.getUint32(p+63)*unit*((scan&128)?-1:1),dy=d.getUint32(p+67)*unit*((scan&64)?1:-1);
       return {lat:Array.from({length:ny},(_,j)=>lat0+j*dy),lon:Array.from({length:nx},(_,i)=>lon0+i*dx)};
     }p+=n;
@@ -132,12 +181,16 @@ export function lumaStorageCode(raw,nativeBits,storedBits){
   return raw*2**shift+Math.floor(raw/2**(nativeBits-shift));
 }
 
-// Unknown projections/scanning are still viewable as the stored row-major raster.
-// Do not infer geographic coordinates from image dimensions or placeholder axes.
-export function streamGeometry(group){
+// Missing geometry can be previewed as an explicitly assumed global raster.
+// Recognized projected/unsupported-scan grids retain native mode unless forced.
+export function streamGeometry(group,{assumeGlobal=false}={}){
   const nx=Number(group.options.crop_width),ny=Number(group.options.crop_height);
   if(!Number.isSafeInteger(nx)||!Number.isSafeInteger(ny)||nx<1||ny<1)throw new Error('Invalid native grid dimensions');
-  try{const axes=gribAxes(group.options.template_b64);if(axes)return {...makeGeometry(axes.lat,axes.lon,nx,ny),native:false};}catch{/* Native raster fallback; no geographic approximation. */}
+  try{const axes=gribAxes(group.options.template_b64);if(axes)return {...makeGeometry(axes.lat,axes.lon,nx,ny,axes),native:false};}catch{/* Explicit fallback below. */}
+  let recognizable=false;
+  try{const b=Uint8Array.from(atob(group.options.template_b64||''),c=>c.charCodeAt(0));recognizable=b.length>=8&&[1,2].includes(b[7]);}catch{}
+  const plausibleGlobal=nx>=360&&ny>=180&&Math.abs(nx/ny-2)<.08;
+  if(assumeGlobal||(!recognizable&&plausibleGlobal))return {nx,ny,native:false,assumed:true,kind:'assumed-global',lat0:90,lon0:0,dx:360/nx,dy:-180/(ny-1),cyclic:true};
   return {nx,ny,native:true,lat0:0,lon0:0,dx:1,dy:-1,cyclic:false};
 }
-export function compatibleGeometry(a,b){return a.native===b.native&&['nx','ny','lat0','lon0','dx','dy'].every(k=>Math.abs(a[k]-b[k])<1e-6);}
+export function compatibleGeometry(a,b){return a.native===b.native&&Boolean(a.assumed)===Boolean(b.assumed)&&(a.kind||'regular')===(b.kind||'regular')&&['nx','ny','lat0','lon0','dx','dy'].every(k=>Math.abs(a[k]-b[k])<1e-6)&&(!a.latitudes&&!b.latitudes||a.latitudes?.length===b.latitudes?.length&&a.latitudes.every((v,i)=>Math.abs(v-b.latitudes[i])<1e-8));}
