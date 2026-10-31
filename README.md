@@ -359,3 +359,9 @@ rules are ignored. More-specific selector sets override subsets; ambiguous
 matches fail. `action=retain` stops encoding for that field: retain its source
 GRIB separately. Recipe measurements apply only to the data evaluated; compare
 the final output again when applying a recipe to other data.
+
+
+SVT-AV1 recipes from the optimizer may also contain `encoder_preset` (0–13) and
+`svtav1_params` (a colon-separated SVT dictionary). AVENC forwards these per-stream
+settings to FFmpeg so recipe replay uses the evaluated speed preset and coding
+tools. Both settings require `encoder=libsvtav1`; older recipe CSVs remain valid.

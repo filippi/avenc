@@ -38,7 +38,7 @@ public:
     explicit Table(const std::string& path) {
         if(path.empty())return;
         const auto rows=read(path);if(rows.empty())throw std::runtime_error("Empty recipes CSV");
-        const std::set<std::string> settings={"codec","quality","encoder","bits","quantization","transform","transform_parameter","group_by","gop","crf","chroma","action"};
+        const std::set<std::string> settings={"codec","quality","encoder","bits","quantization","transform","transform_parameter","group_by","gop","crf","chroma","encoder_preset","svtav1_params","action"};
         std::set<std::string> seen;
         for(const auto& name:rows[0]){
             if(!seen.insert(name).second)throw std::runtime_error("Duplicate recipe column: "+name);

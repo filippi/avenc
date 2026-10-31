@@ -546,6 +546,15 @@ Options recipe_options(const Options& defaults,const avenc_recipes::Rule& rule) 
         size_t end=0;int g=std::stoi(get("gop"),&end);if(end!=get("gop").size()||g<1)throw std::runtime_error("Invalid recipe GOP");
         if(effective.encoder!="ffv1")effective.ffmpeg_extra_args.insert(effective.ffmpeg_extra_args.end(),{"-g",std::to_string(g)});
     }
+    if(!get("encoder_preset").empty()){
+        if(effective.encoder!="libsvtav1")throw std::runtime_error("encoder_preset recipe setting currently requires libsvtav1");
+        size_t end=0;int preset=std::stoi(get("encoder_preset"),&end);if(end!=get("encoder_preset").size()||preset<0||preset>13)throw std::runtime_error("Invalid SVT recipe preset");
+        effective.ffmpeg_extra_args.insert(effective.ffmpeg_extra_args.end(),{"-preset",std::to_string(preset)});
+    }
+    if(!get("svtav1_params").empty()){
+        if(effective.encoder!="libsvtav1")throw std::runtime_error("svtav1_params requires libsvtav1");
+        effective.ffmpeg_extra_args.insert(effective.ffmpeg_extra_args.end(),{"-svtav1-params",get("svtav1_params")});
+    }
     if(effective.encoder=="libaom-av1")effective.ffmpeg_extra_args.insert(effective.ffmpeg_extra_args.end(),{"-cpu-used",effective.quality=="lossless"?"4":"6","-row-mt","1","-lag-in-frames","0","-aq-mode","0","-tile-columns","0"});
     return effective;
 }
