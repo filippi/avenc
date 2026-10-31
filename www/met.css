@@ -25,3 +25,8 @@ dialog{width:min(580px,calc(100vw - 24px));max-height:calc(100dvh - 40px);color:
 @media(max-width:760px){.sources-panel{top:178px;left:12px;width:min(286px,calc(100vw - 82px));max-height:calc(100dvh - 280px);padding:20px 14px 14px}.sources-panel h2{font-size:21px}.source-hint{top:178px;left:12px;right:60px;max-width:none;transform:none;font-size:10px;padding:9px}.placing-source .globe-hint{display:none}.time-ticks{margin-left:100px}.source-intro{font-size:10px}}
 
 .plume-options{border-top:1px solid var(--line);border-bottom:1px solid var(--line);margin-top:14px;padding:8px 0}.plume-options .setting{font-size:11px;min-height:30px}.plume-options .setting select,.plume-options .setting input[type=range]{width:110px}.plume-options .setting select{padding:6px 8px;font-size:10px}.plume-options input[type=checkbox]{accent-color:var(--accent)}
+
+/* Long archives retain years and provide a direct UTC date jump. */
+.timeline{grid-template-columns:210px 1fr}.lead{width:70px}.time-ticks{margin-right:73px}
+#dateJump{display:block;font:inherit;font-size:10px;padding:1px 4px;margin-top:3px;width:126px;color:var(--accent);background:#102331;border:1px solid var(--line);border-radius:4px;color-scheme:dark}#dateJump[hidden]{display:none}
+@media(max-width:760px){.timeline{display:block}.time-top>div:first-child{display:flex;align-items:center;gap:8px}.valid-time{font-size:11px}#dateJump{font-size:9px;width:113px;margin:0}.lead{width:62px}.time-ticks{margin-right:65px}.time-ticks span:nth-child(3){display:none}}

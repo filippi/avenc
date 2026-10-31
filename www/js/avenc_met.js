@@ -1,3 +1,4 @@
+import { referenceTime, timelineInfo, formatTime, tickLabel, positionLabel } from './avenc_timeline.js';
 import { zip } from 'https://cdn.jsdelivr.net/npm/fflate@0.8.2/esm/browser.js';
 import { accessExamples } from './avenc_access.js';
 import { fieldArchive } from './avenc_npz.js';
@@ -27,7 +28,7 @@ let views=[],supported=new Map(),frames=[],index=0,field='wind',custom=null,acti
 function tell(text,error=false){$('messageText').textContent=text;$('message').classList.toggle('error',error);$('message').classList.remove('ready');}
 function bytes(n){return n>=1e6?(n/1e6).toFixed(2)+' MB':(n/1024).toFixed(1)+' KB';}
 function network(t){$('network').textContent=`${bytes(t.bytes)} transferred · HTTP Range`;}
-function date(ms){return new Date(ms).toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit',timeZone:'UTC',hour12:false})+' UTC';}
+const date=formatTime;
 function palette(config){const stops=PALETTES[config.palette]||PALETTES.wind;return Array.from({length:256},(_,i)=>{const x=i/255*(stops.length-1),a=Math.floor(x),b=Math.min(a+1,stops.length-1),t=x-a;return stops[a].map((v,j)=>Math.round(v*(1-t)+stops[b][j]*t));});}
 function normalized(v,c){return Math.max(0,Math.min(1,c.log?Math.log1p(Math.max(0,v))/Math.log1p(c.range[1]):(v-c.range[0])/(c.range[1]-c.range[0])));}
 function updateLegend(){
@@ -130,12 +131,13 @@ function currentViews(){
 function updateFrames(keepTime){
   const vs=currentViews();frames=['wind','currents'].includes(field)&&!custom?pairWind(vs[0],vs[1]):vs[0]?.frames||[];
   if(!frames.length){tell('No matching fields at this level and valid time.',true);current=null;weather.render();return false;}
-  const desired=keepTime??frames[0].ms+Number(query.get('lead')||120)*3600000;
+  const info=timelineInfo(frames);
+  const desired=keepTime??frames[0].ms+Number(query.get('lead')??(info.archive?0:120))*3600000;
   index=frames.reduce((best,f,i)=>Math.abs(f.ms-desired)<Math.abs(frames[best].ms-desired)?i:best,0);
   $('time').max=frames.length-1;$('time').value=index;$('time').disabled=false;
   $('timeTicks').replaceChildren(...Array.from({length:6},(_,n)=>{
     const i=Math.round(n*(frames.length-1)/5),el=document.createElement('span');
-    el.textContent=new Date(frames[i].ms).toLocaleDateString('en-GB',{day:'2-digit',month:'short',timeZone:'UTC'});
+    el.textContent=tickLabel(frames[i].ms,info);el.title=date(frames[i].ms);
     el.style.left=(100*i/Math.max(1,frames.length-1))+'%';el.style.transform=n===0?'none':n===5?'translateX(-100%)':'translateX(-50%)';return el;
   }));
   return true;
@@ -190,10 +192,13 @@ async function render(){
     loading=false;clearTimeout(noticeTimer);$('time').value=index;
     if(activeConfig.auto){let min=Infinity,max=-Infinity;for(const x of u)if(Number.isFinite(x)){const v=x*activeConfig.factor+activeConfig.offset;min=Math.min(min,v);max=Math.max(max,v);}if(!Number.isFinite(min))throw new Error('This field has no finite data.');if(activeConfig.symmetric){const m=Math.max(Math.abs(min),Math.abs(max),1e-12);activeConfig.range=[-m,m];}else activeConfig.range=[min,max>min?max:min+1];updateLegend();}
     $('validTime').textContent=date(f.ms);
-    const r=f.record,dd=String(r.dataDate),hh=String(r.dataTime||'0').padStart(4,'0');
-    const init=Date.parse(`${dd.slice(0,4)}-${dd.slice(4,6)}-${dd.slice(6,8)}T${hh.slice(0,2)}:${hh.slice(2,4)}:00Z`);
-    $('lead').textContent=Number.isFinite(init)?`+${Math.round((f.ms-init)/3600000)} h`:'';
-    $('runInfo').textContent=Number.isFinite(init)?'Initialized '+date(init):'IFS operational forecast';
+    const r=f.record,init=referenceTime(r),info=timelineInfo(frames);
+    $('lead').textContent=positionLabel(f,index,frames,info);
+    $('lead').title=info.archive?'Field position in archive':'Forecast lead time';
+    $('runInfo').textContent=info.archive?`${date(info.first)} – ${date(info.last)}`:Number.isFinite(init)?'Initialized '+date(init):'Forecast';
+    $('time').title=`${date(f.ms)} · ${date(info.first)} – ${date(info.last)}`;
+    $('time').setAttribute('aria-valuetext',date(f.ms));
+    const jump=$('dateJump');jump.hidden=!info.archive;jump.min=new Date(info.first).toISOString().slice(0,10);jump.max=new Date(info.last).toISOString().slice(0,10);jump.value=new Date(f.ms).toISOString().slice(0,10);
     if(field==='rain'&&!custom)$('runInfo').textContent+=' · accumulation '+r.stepRange+' h';
     $('exportField').disabled=exportBusy;updateViewButton();updateSourceControls();updateSourceList();weather.render();if(point)probe(point);$('message').classList.add('ready');
     // One next-time compressed GOP only. No bulk prefetch or whole-file download.
@@ -419,3 +424,5 @@ updateLegend();
 // Read-only diagnostics for reproducible local checks; no synthetic weather.
 window.avencMet={model,map,get state(){return {field,custom:custom?.key,index,frames:frames.length,ready:Boolean(current)&&!loading,loading,playing,validTime:current?.ms,playDirection,diffusion:emitters.diffusion,sources:emitters.sources.map(s=>({id:s.id,lat:s.lat,lon:s.lon,index:s.index,ms:s.ms,color:s.color,state:s.state?{index:s.state.index,particles:s.state.particles.map(p=>({id:p.id,lat:p.lat,lon:p.lon,active:p.active}))}:null})),native:Boolean(model.geometry?.native),view:globeMode?'3d':'2d',globe:globeMode?{lat:globe.lat,lon:globe.lon,zoom:globe.zoom}:null};}};
 start();
+
+$('dateJump').onchange=()=>{const target=Date.parse($('dateJump').value+'T00:00:00Z');if(!Number.isFinite(target)||!frames.length)return;stop();index=frames.reduce((best,f,i)=>Math.abs(f.ms-target)<Math.abs(frames[best].ms-target)?i:best,0);render();};
