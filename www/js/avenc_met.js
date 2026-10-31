@@ -116,12 +116,15 @@ function updateNativeAxes(){
   }
 }
 function find(name,level){return views.find(v=>v.name===name&&(level===undefined||v.level===String(level)));}
+// ERA5 GRIB1 identifies 10u/10v/2t as surface level 0; IFS GRIB2 uses
+// heightAboveGround 10/2. The short names already identify the physical height.
+function surfaceField(name,height){return find(name,height)||views.find(v=>v.name===name&&v.kind==='surface'&&v.level==='0');}
 function currentViews(){
   if(custom)return [custom];
   const lev=$('level').value;
-  if(field==='wind')return lev==='surface'?[find('10u',10),find('10v',10)]:[find('u',lev),find('v',lev)];
+  if(field==='wind')return lev==='surface'?[surfaceField('10u',10),surfaceField('10v',10)]:[find('u',lev),find('v',lev)];
   if(field==='currents')return [find('sve'),find('svn')];
-  if(field==='temperature')return [lev==='surface'?find('2t',2):find('t',lev)];
+  if(field==='temperature')return [lev==='surface'?surfaceField('2t',2):find('t',lev)];
   return [find(field==='rain'?'tp':'tcc')];
 }
 function updateFrames(keepTime){
@@ -141,7 +144,7 @@ function configForView(v){return displayConfiguration(v);}
 
 function setHeadings(){
   if(!custom&&['wind','temperature'].includes(field)){
-    const surface=field==='wind'?find('10u',10)&&find('10v',10):find('2t',2);
+    const surface=field==='wind'?surfaceField('10u',10)&&surfaceField('10v',10):surfaceField('2t',2);
     const surfaceOption=[...$('level').options].find(o=>o.value==='surface');if(surfaceOption)surfaceOption.disabled=!surface;
     if($('level').value==='surface'&&!surface){const preferred=[...$('level').options].find(o=>o.value==='850')||[...$('level').options].find(o=>o.value!=='surface');if(preferred)$('level').value=preferred.value;}
   }
@@ -234,7 +237,7 @@ async function open(){
     const all=document.createElement('optgroup');all.label='All variables & levels';
     for(const o of [...$('allFields').options].slice(1)){const copy=o.cloneNode(true);copy.value='field:'+o.value;all.append(copy);}
     $('mobileParameter').replaceChildren(quick,all);$('mobileParameter').disabled=false;
-    for(const b of document.querySelectorAll('[data-field]')){const name={temperature:'2t',rain:'tp',cloud:'tcc'}[b.dataset.field];b.disabled=b.dataset.field==='currents'?!(usable(find('sve'))&&usable(find('svn'))&&pairWind(find('sve'),find('svn')).length):b.dataset.field==='wind'?!((usable(find('10u',10))&&usable(find('10v',10)))||windLevels.length):b.dataset.field==='temperature'?!(usable(find(name))||tempLevels.length):!usable(find(name));b.title=b.disabled?'This dataset/browser does not expose a supported codec for this layer.':'';}
+    for(const b of document.querySelectorAll('[data-field]')){const name={temperature:'2t',rain:'tp',cloud:'tcc'}[b.dataset.field];b.disabled=b.dataset.field==='currents'?!(usable(find('sve'))&&usable(find('svn'))&&pairWind(find('sve'),find('svn')).length):b.dataset.field==='wind'?!((usable(surfaceField('10u',10))&&usable(surfaceField('10v',10)))||windLevels.length):b.dataset.field==='temperature'?!(usable(find(name))||tempLevels.length):!usable(find(name));b.title=b.disabled?'This dataset/browser does not expose a supported codec for this layer.':'';}
     for(const o of $('mobileParameter').options)if(!o.value.startsWith('field:'))o.disabled=document.querySelector(`[data-field=${o.value}]`).disabled;
     document.querySelectorAll('[data-variable]').forEach(b=>b.remove());
     for(const [names,icon,label] of [[['r','q'],'◌','Humidity'],[['sp','msl'],'◴','Pressure'],[['gh','z'],'≋','Height'],[['vo'],'⟳','Vorticity']]){

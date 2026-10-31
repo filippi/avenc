@@ -69,7 +69,7 @@ The new reader in `js/avenc_range_model.js`:
    min/max and inverse linear/log/asinh/shifted-log transforms, and restores masks.
    It matches FFmpeg's full-range gray16 bit replication for shifted streams.
    It does not reconstruct values from RGB or silently downconvert bit depth.
-5. Uses GRIB2 template 3.0 scan flags/increments for regular grid geometry. This
+5. Uses GRIB1 GDS representation 0 or GRIB2 template 3.0 scan flags/increments for regular grid geometry. This
    handles the IFS grid starting at 180 E and wrapping to 179.75 E correctly.
    Other definitions fall back to native row/column indices, without geographic positioning.
 6. Keeps at most six Float32 grids, two decoded VideoFrames, and a 32 MiB
@@ -390,3 +390,18 @@ CPU nearest-cell results at ordinary locations, the poles and the dateline,
 and verified the U/V wind magnitude. A mocked device without WebGL retained
 its working 2D view. Headless tests enable software WebGL for reproducibility;
 normal browser use does not require those launch flags.
+
+
+GRIB1 ERA5-Land check (optional existing, range-served fixture):
+
+```bash
+AVENC_ERA5LAND_FIXTURE_URL=http://localhost:8765/era5land-fixture.mp4 \
+  NODE_PATH=/path/to/node_modules CHROME_EXECUTABLE=/path/to/chrome \
+  node www/tests/met_grib1_globe.cjs
+```
+
+The test checks the 3600 × 1801 geographic grid, surface-level U/V pairing,
+preserved missing cells, 3D switching without refetching, time stepping and mobile
+layout. GRIB1 rotated/projected/reduced grids, missing explicit increments and
+unsupported scanning retain the native-grid fallback. No source conversion or
+recompression is needed.

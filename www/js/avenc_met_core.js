@@ -67,7 +67,7 @@ export function decodeValue(raw,bits,bounds,opts,hasBitmap,missing=false){
 export function makeGeometry(lat,lon,nx,ny){
   if(lat.length!==ny||lon.length!==nx||nx<2||ny<2)throw new Error('This map needs a regular latitude/longitude grid with embedded coordinate axes.');
   const dy=(lat[ny-1]-lat[0])/(ny-1),dx=(lon[nx-1]-lon[0])/(nx-1);
-  if(!dy||!dx||lat.some((v,j)=>Math.abs(v-lat[0]-j*dy)>.002)||lon.some((v,i)=>Math.abs(v-lon[0]-i*dx)>.002))throw new Error('Only regular latitude/longitude IFS grids are supported.');
+  if(!dy||!dx||lat.some((v,j)=>Math.abs(v-lat[0]-j*dy)>.002)||lon.some((v,i)=>Math.abs(v-lon[0]-i*dx)>.002))throw new Error('Only regular latitude/longitude grids are supported.');
   const cyclic=Math.abs(Math.abs(dx)*nx-360)<.01;
   return {nx,ny,lat0:lat[0],lon0:lon[0],dx,dy,cyclic};
 }
@@ -79,11 +79,34 @@ export function gridIndex(geo,lat,lon){
   return j<0||j>=geo.ny||i<0||i>=geo.nx?-1:j*geo.nx+i;
 }
 export function vectorAt(geo,u,v,lat,lon){const k=gridIndex(geo,lat,lon);return k<0?null:{u:u[k],v:v[k],speed:Math.hypot(u[k],v[k])};}
+// GRIB1 GDS representation 0: regular, unrotated latitude/longitude.
+// https://codes.ecmwf.int/grib/format/grib1/grids/0/
+function grib1Axes(b,d){
+  const u24=p=>b[p]*65536+b[p+1]*256+b[p+2];
+  if(b.length<16)return null;
+  const pds=u24(8),p=8+pds;
+  if(pds<8||p+32>b.length||!(b[15]&128))return null;
+  const length=u24(p);if(length<32||p+length>b.length||b[p+5]!==0)return null;
+  const nx=d.getUint16(p+6),ny=d.getUint16(p+8),scan=b[p+27];
+  // Reduced grids and unusual scan layouts must retain the native-raster fallback.
+  if(nx<2||ny<2||nx===65535||ny===65535)return null;
+  if(scan&48)throw new Error('Alternating or column-consecutive GRIB scanning is not supported by this map.');
+  const di=d.getUint16(p+23),dj=d.getUint16(p+25);
+  if(!(b[p+16]&128)||!di||!dj||di===65535||dj===65535)return null;
+  const signed=off=>{const v=u24(p+off);return ((v&0x800000)?-(v&0x7fffff):v)/1000;};
+  const lat0=signed(10),lon0=signed(13),dx=di/1000*((scan&128)?-1:1),dy=dj/1000*((scan&64)?1:-1);
+  const latEnd=lat0+(ny-1)*dy,lonEnd=lon0+(nx-1)*dx;
+  const lonDifference=((lonEnd-signed(20)+180)%360+360)%360-180;
+  if(Math.abs(lat0)>90||Math.abs(latEnd)>90.002||Math.abs(latEnd-signed(17))>.002||Math.abs(lonDifference)>.002)return null;
+  return {lat:Array.from({length:ny},(_,j)=>lat0+j*dy),lon:Array.from({length:nx},(_,i)=>lon0+i*dx)};
+}
 // Read GRIB2 template 3.0 rather than interpolating across a wrapped endpoint.
 // A global grid may start at 180 E and finish at 179.75 E: its true dx is +.25.
 export function gribAxes(template){
   if(!template)return null;
   const b=Uint8Array.from(atob(template),c=>c.charCodeAt(0)),d=new DataView(b.buffer);
+  if(b.length<8)return null;
+  if(b[7]===1)return grib1Axes(b,d);
   if(b.length<16||b[7]!==2)return null;
   let p=16;
   while(p+14<=b.length){

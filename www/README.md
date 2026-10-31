@@ -80,6 +80,11 @@ exports reconstructed preview data, not the original GRIB values.
 `met.html` redirects old links to `index.html`, preserving query parameters.
 The former `index.php` has been removed.
 
+Regular latitude/longitude geometry is read from GRIB1 GDS representation 0
+(including ERA5-Land) and GRIB2 template 3.0. Both support 2D maps and the 3D
+globe, preserving the decoded missing-value mask. ERA5 surface-level `10u`/`10v`
+fields are paired as 10-metre winds, just like IFS height-above-ground fields.
+
 Unsupported geographic grid definitions automatically open in a **native-grid**
 view with row/column axes and no basemap or wind directions. Playback, probes
 and NPZ exports remain available; native exports use `row`/`column` coordinates.
